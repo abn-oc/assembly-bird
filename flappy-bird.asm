@@ -44,23 +44,19 @@ drawRectangle:
     mov ax, 0xA000    ; Video memory segment for VGA
     mov es, ax
     mov di, 0        ; Start at the beginning of video memory
-    mov cx, [bp+4]	;x
-	.l1:
-		add di, 1
-		sub cx, 1
-		jnz .l1
-	mov cx, [bp+6]	;y
-	.l2:
-		add di, 320
-		sub cx, 1
-		jnz .l2
+    ;mov cx, [bp+4]	;x
+	mov di, [bp+4]
+	mov ax, [bp+6]
+	mov cx, 320
+	mul cx
+	add di, ax
 	mov cx, [bp+8]	;h
 	.l3:
 		mov dx, [bp+10]	;w
 		.l4:
 			push ax
 			mov ax, [bp+12]
-			mov word [es:di], ax
+			mov byte [es:di], al
 			pop ax
 			add di, 1
 			sub dx, 1
@@ -76,7 +72,21 @@ drawRectangle:
     pop ax
 	pop bp
     ret 10
-
+	
+drawCircle:
+	push bp
+	mov bp, sp
+	push es
+	push ax
+	push di
+	push cx
+	push dx
+	
+	mov ax, 0xA000
+	mov es, ax
+	mov di, 0
+	
+	
 drawBird:
 	push word 0x0006	;brown
 	push 6				;w
@@ -94,6 +104,28 @@ drawBird:
 	push 20			;h
 	push word [birdY]	;y
 	push word [birdX]	;x
+	call drawRectangle
+	
+	push word 0x0000	;brown
+	push 4				;w
+	push 1				;h
+	add word [birdY], 17
+	add word [birdX], 15
+	push word [birdY]	;y
+	push word [birdX]	;x
+	sub word [birdY], 17
+	sub word [birdX], 15
+	call drawRectangle
+	
+	push word 0x0000	;brown
+	push 1				;w
+	push 2				;h
+	add word [birdY], 15
+	add word [birdX], 15
+	push word [birdY]	;y
+	push word [birdX]	;x
+	sub word [birdY], 15
+	sub word [birdX], 15
 	call drawRectangle
 	
 	push word 0x000C	;red
@@ -130,14 +162,14 @@ drawBird:
 	call drawRectangle
 	
 	push word 0x0000	;black
-	push 2				;w
+	push 4				;w
 	push 6				;h
 	add word [birdY], 5
-	add word [birdX], 16
+	add word [birdX], 15
 	push word [birdY]	;y
 	push word [birdX]	;x
 	sub word [birdY], 5
-	sub word [birdX], 16
+	sub word [birdX], 15
 	call drawRectangle
 
     ret
@@ -182,6 +214,7 @@ drawPipe:
 	push word [pipeX]	;x
 	add word [pipeX], 10
 	call drawRectangle
+	
 	ret
 	
 drawUPipe:
@@ -193,14 +226,112 @@ drawUPipe:
 	push word [upipeX]	;x
 	call drawRectangle
 	
+	push word 0x78	;green
+	push 2				;w
+	push word [upipeY]	;h
+	push word 0			;y
+	push word [upipeX]	;x
+	call drawRectangle
 	
-	push word 0x0002	;green
+	push word 0x79	;green
+	push 2				;w
+	push word [upipeY]	;h
+	push word 0			;y
+	add word [upipeX], 2
+	push word [upipeX]	;x
+	sub word [upipeX], 2
+	call drawRectangle
+	
+	push word 0x2	;green
+	push 4				;w
+	push word [upipeY]	;h
+	push word 0			;y
+	add word [upipeX], 4
+	push word [upipeX]	;x
+	sub word [upipeX], 4
+	call drawRectangle
+	
+	push word 0x2	;green
+	push 4				;w
+	push word [upipeY]	;h
+	push word 0			;y
+	add word [upipeX], 32
+	push word [upipeX]	;x
+	sub word [upipeX], 32
+	call drawRectangle
+	
+	push word 0x79	;green
+	push 2				;w
+	push word [upipeY]	;h
+	push word 0			;y
+	add word [upipeX], 36
+	push word [upipeX]	;x
+	sub word [upipeX], 36
+	call drawRectangle
+	
+	push word 0x78	;green
+	push 2				;w
+	push word [upipeY]	;h
+	push word 0			;y
+	add word [upipeX], 38
+	push word [upipeX]	;x
+	sub word [upipeX], 38
+	call drawRectangle
+	
+	push word 0x31	;green
 	push 60				;w
 	push 20				;h
 	push word [upipeY]	;y
 	sub word [upipeX], 10
 	push word [upipeX]	;x
 	add word [upipeX], 10
+	call drawRectangle
+	
+	push word 0x2	;green
+	push 30				;w
+	push 4				;h
+	sub word [upipeY], 4
+	push word [upipeY]	;y
+	add word [upipeY], 4
+	add word [upipeX], 4
+	push word [upipeX]	;x
+	sub word [upipeX], 4
+	call drawRectangle
+	
+	push word 0x78	;green
+	push 4				;w
+	push 20				;h
+	push word [upipeY]	;y
+	sub word [upipeX], 10
+	push word [upipeX]	;x
+	add word [upipeX], 10
+	call drawRectangle
+	
+	push word 0x2	;green
+	push 4				;w
+	push 20				;h
+	push word [upipeY]	;y
+	sub word [upipeX], 6
+	push word [upipeX]	;x
+	add word [upipeX], 6
+	call drawRectangle
+	
+	push word 0x2	;green
+	push 4				;w
+	push 20				;h
+	push word [upipeY]	;y
+	add word [upipeX], 46
+	push word [upipeX]	;x
+	sub word [upipeX], 46
+	call drawRectangle
+	
+	push word 0x78	;green
+	push 4				;w
+	push 20				;h
+	push word [upipeY]	;y
+	add word [upipeX], 42
+	push word [upipeX]	;x
+	sub word [upipeX], 42
 	call drawRectangle
 	ret
 
