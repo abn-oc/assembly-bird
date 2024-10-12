@@ -9,7 +9,21 @@ pipeY: dw 130
 upipeX: dw 220
 upipeY: dw 25
 
-; Function to set the VGA mode
+;functions
+
+delay:
+	push cx
+	mov cx, 0xFFFF
+	.l1:
+		sub cx, 1
+		jnz .l1
+	mov cx, 0xFFFF
+	.l2:
+		sub cx, 1
+		jnz .l2
+	pop cx
+	ret
+
 setVGA:
     mov ax, 0x0013    ; Set video mode to 320x200, 16 colors (0x0013)
     int 0x10          ; BIOS interrupt to set video mode
@@ -41,12 +55,11 @@ drawRectangle:
     push di
 	push cx
 	push dx
-    mov ax, 0xA000    ; Video memory segment for VGA
+    mov ax, 0xA000		; Video memory segment for VGA
     mov es, ax
-    mov di, 0        ; Start at the beginning of video memory
-    ;mov cx, [bp+4]	;x
-	mov di, [bp+4]
-	mov ax, [bp+6]
+    mov di, 0			; Start at the beginning of video memory
+	mov di, [bp+4]		;x
+	mov ax, [bp+6]		;y
 	mov cx, 320
 	mul cx
 	add di, ax
@@ -73,18 +86,21 @@ drawRectangle:
 	pop bp
     ret 10
 	
-drawCircle:
-	push bp
-	mov bp, sp
-	push es
-	push ax
-	push di
-	push cx
-	push dx
+drawClouds:
+	push word 0x65		;light blue
+	push 40				;w
+	push 20				;h
+	push word 40		;y
+	push word 60		;x
+	call drawRectangle
 	
-	mov ax, 0xA000
-	mov es, ax
-	mov di, 0
+	push word 0x65		;light blue
+	push 37				;w
+	push 27				;h
+	push word 90		;y
+	push word 260		;x
+	call drawRectangle
+	ret
 	
 	
 drawBird:
@@ -183,11 +199,46 @@ drawGround:
 	push word 0			;x
 	call drawRectangle
 	
-	push word 0x000A	;green
+	push word 0x0002	;green
 	push 320			;w
 	push 6				;h
 	push word 165		;y
 	push word 0			;x
+	call drawRectangle
+	
+	push word 0xA		;green
+	push 320			;w
+	push 4				;h
+	push word 168		;y
+	push word 0			;x
+	call drawRectangle
+	
+	push word 0x24		;pink
+	push 4				;w
+	push 4				;h
+	push word 163		;y
+	push word 35		;x
+	call drawRectangle
+	
+	push word 0xe		;yello
+	push 4				;w
+	push 4				;h
+	push word 163		;y
+	push word 100		;x
+	call drawRectangle
+	
+	push word 0x20		;blue
+	push 4				;w
+	push 4				;h
+	push word 162		;y
+	push word 200		;x
+	call drawRectangle
+	
+	push word 0x28		;red
+	push 4				;w
+	push 4				;h
+	push word 163		;y
+	push word 300		;x
 	call drawRectangle
 	
 	ret
@@ -317,10 +368,10 @@ drawPipe:
 	push 20				;h
 	sub word [pipeY], 20
 	push word [pipeY]	;y
-	add word [pipeX], 46
+	add word [pipeX], 42
 	push word [pipeX]	;x
 	add word [pipeY], 20
-	sub word [pipeX], 46
+	sub word [pipeX], 42
 	call drawRectangle
 	
 	push word 0x78		;green
@@ -328,10 +379,10 @@ drawPipe:
 	push 20				;h
 	sub word [pipeY], 20
 	push word [pipeY]	;y
-	add word [pipeX], 42
+	add word [pipeX], 46
 	push word [pipeX]	;x
 	add word [pipeY], 20
-	sub word [pipeX], 42
+	sub word [pipeX], 46
 	call drawRectangle
 	ret
 	
@@ -438,18 +489,18 @@ drawUPipe:
 	push 4				;w
 	push 20				;h
 	push word [upipeY]	;y
-	add word [upipeX], 46
+	add word [upipeX], 42
 	push word [upipeX]	;x
-	sub word [upipeX], 46
+	sub word [upipeX], 42
 	call drawRectangle
 	
 	push word 0x78	;green
 	push 4				;w
 	push 20				;h
 	push word [upipeY]	;y
-	add word [upipeX], 42
+	add word [upipeX], 46
 	push word [upipeX]	;x
-	sub word [upipeX], 42
+	sub word [upipeX], 46
 	call drawRectangle
 	ret
 
@@ -458,10 +509,24 @@ start:
 
     call setVGA        ; Set 640x480 16-color VGA mode
     call drawBG        ; Clear the screen
+	call drawClouds
 	call drawBird
 	call drawGround
 	call drawPipe
 	call drawUPipe
+	
+	; .frames
+		; call drawBG        ; Clear the screen
+		; call drawClouds
+		; call drawBird
+		; call drawGround
+		; call drawPipe
+		; call drawUPipe
+		; ;call delay
+		; ;call delay
+		; sub word [pipeX], 1
+		; sub word [upipeX], 1
+		; jmp .frames
 	
 end:
 mov ax, 0x4c00
