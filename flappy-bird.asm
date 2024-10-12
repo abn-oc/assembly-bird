@@ -5,9 +5,9 @@ jmp start
 birdX: dw 60
 birdY: dw 90
 pipeX: dw 220
-pipeY: dw 140
+pipeY: dw 130
 upipeX: dw 220
-upipeY: dw 50
+upipeY: dw 25
 
 ; Function to set the VGA mode
 setVGA:
@@ -193,28 +193,146 @@ drawGround:
 	ret
 	
 drawPipe:
-
 	push ax
 	push word 0x000A	;green
 	push 40				;w
 	mov ax, 200
 	sub ax, [pipeY]
-	push ax	;h
+	push ax				;h
 	push word [pipeY]	;y
 	push word [pipeX]	;x
 	call drawRectangle
 	pop ax
 	
+	push word 0x78		;green
+	push 2				;w
+	mov ax, 200
+	sub ax, [pipeY]
+	push ax				;h
+	push word [pipeY]	;y
+	push word [pipeX]	;x
+	call drawRectangle
 	
-	push word 0x0002	;green
+	push word 0x79		;green
+	push 2				;w
+	mov ax, 200
+	sub ax, [pipeY]
+	push ax				;h
+	push word [pipeY]	;y
+	add word [pipeX], 2
+	push word [pipeX]	;x
+	sub word [pipeX], 2
+	call drawRectangle
+	
+	push word 0x2		;green
+	push 4				;w
+	mov ax, 200
+	sub ax, [pipeY]
+	push ax				;h
+	push word [pipeY]	;y
+	add word [pipeX], 4
+	push word [pipeX]	;x
+	sub word [pipeX], 4
+	call drawRectangle
+	
+	push word 0x2		;green
+	push 4				;w
+	mov ax, 200
+	sub ax, [pipeY]
+	push ax				;h
+	push word [pipeY]	;y
+	add word [pipeX], 32
+	push word [pipeX]	;x
+	sub word [pipeX], 32
+	call drawRectangle
+	
+	push word 0x79		;green
+	push 2				;w
+	mov ax, 200
+	sub ax, [pipeY]
+	push ax				;h
+	push word [pipeY]	;y
+	add word [pipeX], 36
+	push word [pipeX]	;x
+	sub word [pipeX], 36
+	call drawRectangle
+	
+	push word 0x78		;green
+	push 2				;w
+	mov ax, 200
+	sub ax, [pipeY]
+	push ax				;h
+	push word [pipeY]	;y
+	add word [pipeX], 38
+	push word [pipeX]	;x
+	sub word [pipeX], 38
+	call drawRectangle
+	
+	push word 0x31		;green
 	push 60				;w
 	push 20				;h
+	sub word [pipeY], 20
 	push word [pipeY]	;y
 	sub word [pipeX], 10
 	push word [pipeX]	;x
+	add word [pipeY], 20
 	add word [pipeX], 10
 	call drawRectangle
 	
+	push word 0x2		;green
+	push 30				;w
+	push 4				;h
+	add word [pipeY], 0
+	push word [pipeY]	;y
+	add word [pipeX], 4
+	push word [pipeX]	;x
+	sub word [pipeY], 0
+	sub word [pipeX], 4
+	call drawRectangle
+	
+	push word 0x78		;green
+	push 4				;w
+	push 20				;h
+	sub word [pipeY], 20
+	push word [pipeY]	;y
+	sub word [pipeX], 10
+	push word [pipeX]	;x
+	add word [pipeY], 20
+	add word [pipeX], 10
+	call drawRectangle
+	
+	push word 0x2		;green
+	push 4				;w
+	push 20				;h
+	sub word [pipeY], 20
+	push word [pipeY]	;y
+	sub word [pipeX], 6
+	push word [pipeX]	;x
+	add word [pipeY], 20
+	add word [pipeX], 6
+	call drawRectangle
+	
+	push word 0x2		;green
+	push 4				;w
+	push 20				;h
+	sub word [pipeY], 20
+	push word [pipeY]	;y
+	add word [pipeX], 46
+	push word [pipeX]	;x
+	add word [pipeY], 20
+	sub word [pipeX], 46
+	call drawRectangle
+	
+	push word 0x78		;green
+	push 4				;w
+	push 20				;h
+	sub word [pipeY], 20
+	push word [pipeY]	;y
+	add word [pipeX], 42
+	push word [pipeX]	;x
+	add word [pipeY], 20
+	sub word [pipeX], 42
+	call drawRectangle
 	ret
 	
 drawUPipe:
@@ -346,5 +464,5 @@ start:
 	call drawUPipe
 	
 end:
-    mov ax, 0x4C00     ; Terminate program
-    int 0x21           ; DOS interrupt
+mov ax, 0x4c00
+int 0x21
