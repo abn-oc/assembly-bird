@@ -4,6 +4,8 @@ jmp start
 ;variables
 pipeX: dw 280
 pipeY: dw 100
+pipe2X: dw 5
+pipe2Y: dw 70
 prevCol: times 26 db 0
 
 ;included files
@@ -134,6 +136,52 @@ drawRectTrans:
 		.exitfunc:
 		popA
 		pop bp
+		ret 
+		
+drawRectTransInv:   
+	push bp
+	mov bp, sp
+	pushA
+	mov ax, 0xA000
+	mov es, ax
+	
+	mov si, [bp + 4]	;pixel data
+	mov di, [bp + 12]	;x
+	;moving di to the required y cord
+	mov bx, [bp + 10]	;y
+	.ydi:
+		add di, 320
+		sub bx, 1
+		jnz .ydi
+	mov bx, [bp + 8]	;w 
+	mov dx, [bp + 6]	;h
+
+	.printRect:
+		mov cx, bx
+		.printLine:  	;explain this part wali....
+			mov al, [ds:si]
+            cmp al, 0x0F
+			je .cont
+			cmp al, 0x10
+			je .cont
+			add al, 55
+			
+			mov byte [es:di], al
+			.cont:
+			inc di
+			inc si
+			loop .printLine
+		;exit function if on ground line
+		cmp di, 320
+		jbe .exitfunc
+		
+		sub di, 320
+		sub di, bx
+		dec dx
+		jnz .printRect
+		.exitfunc:
+		popA
+		pop bp
 		ret 10
 
 drawCroppedBG:   
@@ -247,19 +295,41 @@ start:
 		sub word [pipeX], 25
 		push word [pipeY]		;y
 		push 2			;width
-		push 148		;height
+		push 80		;height
 		push bg		;pixel data
 		call drawCroppedBG
 		
 		push word [pipeX]	;x
 		push word [pipeY]	;y
 		push 26				;width
-		push 148			;height
+		push 80			;height
 		push barrier		;pixel data
 		call drawRectTrans
 		
+		add word [pipe2X], 25
+		push word [pipe2X]		;x
+		sub word [pipe2X], 25
+		push word 0		;y
+		push 2			;width
+		add word [pipe2Y], 1
+		push word [pipe2Y]		;height
+		sub word [pipe2Y], 1
+		push bg		;pixel data
+		call drawCroppedBG
+		
+		push word [pipe2X]	;x
+		push word [pipe2Y]	;y
+		push 26				;width
+		push 80			;height
+		push barrier		;pixel data
+		call drawRectTransInv
+		
 		sub word [pipeX], 1
-	
+		sub word [pipe2X], 1
+		cmp word [pipe2X], -28
+		jne .st
+		mov word [pipe2X], 320-28
+		.st:
 	jmp .gameloop
 
 exit:
