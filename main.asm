@@ -20,7 +20,7 @@ initResPalette:
 	;set 13h vga mode
 	mov ax, 13h
 	int 10h
-	mov ax, 0xE000
+	mov ax, 0xA000
 	mov es, ax
 	
 	;set color pallete
@@ -59,12 +59,12 @@ drawBG:
 	call drawRect
 	pop  bp
 	ret
-	
+
 drawRect:   
 	push bp
 	mov  bp, sp
 	pushA
-	mov  ax, 0xE000
+	mov  ax, 0xA000
 	mov  es, ax
 
 	mov si, [bp + 4]  ;pixel data
@@ -105,10 +105,10 @@ copyFromBuffer:
 	mov  ax, 0xA000
 	mov  es, ax
 
-	mov ax, 0xE000
+	mov ax, 0xA000
 	mov ds, ax
 	    ; Set the source and destination addresses
-    mov si, 0 ; Source address (offscreen buffer at 0xE000)
+    mov si, 0 ; Source address (offscreen buffer at 0xA000)
     mov di, 0 ; Destination address (screen buffer at 0xA000)
 
     ; Set the number of bytes to copy (assuming 320x200 VGA mode with 320 bytes per line)
@@ -135,7 +135,7 @@ drawRectTrans:
 	mov  bp, sp
 	sub  sp, 4
 	pushA
-	mov  ax, 0xE000
+	mov  ax, 0xA000
 	mov  es, ax
 	
 	mov si,       [bp + 4]  ;pixel data
@@ -160,6 +160,8 @@ drawRectTrans:
 		.printLine:
 			cmp word [bp - 2], 0
 			jl  .cont
+			cmp word [bp - 2], 320
+			jge .cont
 			mov al,            [ds:si]
             cmp al,            0x0F
 			je  .cont
@@ -191,7 +193,7 @@ drawRectTransInv:
 	push bp
 	mov  bp, sp
 	pushA
-	mov  ax, 0xE000
+	mov  ax, 0xA000
 	mov  es, ax
 	
 	mov si, [bp + 4]  ;pixel data
@@ -237,7 +239,7 @@ drawCroppedBG:
 	push bp
 	mov  bp, sp
 	pushA
-	mov  ax, 0xE000
+	mov  ax, 0xA000
 	mov  es, ax
 
 	mov si, [bp + 4]  ;pixel data
@@ -250,14 +252,15 @@ drawCroppedBG:
 		add si, 160
 		sub bx, 1
 		jnz .ydi
+
 	mov bx, [bp + 8] ;w 
 	mov dx, [bp + 6] ;h
 
 	.printRect:
 		mov cx, bx
 		.printLine:  
-			mov  al,           [ds:si]
-			mov  byte [es:di], al
+			mov  al, [ds:si]
+			mov  [es:di], al
 			inc  di
 			inc  si
 			loop .printLine
@@ -281,7 +284,7 @@ moveGround:
 	mov  bp, sp
 	pushA
 	
-	mov ax, 0xE000
+	mov ax, 0xA000
 	mov es, ax
 
 	;Copying leftmost column 
@@ -344,33 +347,53 @@ start:
 	call drawBG
 	
 	.gameloop:
-		
-		call moveGround
 
 		mov cx, 4
-		mov si, pillarsX
+		mov si, 0
 		.drawPillars:
 
-			add  word [si], 25
-			push word [si]     ;x
-			sub  word [si], 25
+			add  word [pillarsX + si], 25
+			push word [pillarsX + si]     ;x
+			sub  word [pillarsX + si], 25
 			push word [pipeY]  ;y
 			push 4             ;width
 			push 80            ;height
 	 		push bg            ;pixel data
 			call drawCroppedBG
 		
-			push word [si]     ;x
+			push word [pillarsX + si]     ;x
 			push word [pipeY]  ;y
 			push 26            ;width
 			push 80            ;height
 			push barrier       ;pixel data
 			call drawRectTrans
-			add  si,        2
-			sub  word [si], 2
-
+			sub  word [pillarsX + si], 3
+			add si, 2 ; draw the next pillar
+			
 		loop .drawPillars
-		
+
+			cmp word [pillarsX], -25
+			jnl .ext
+			push cx
+			mov cx, 3
+			mov di, 0
+			.shiftArr:
+				mov ax, [pillarsX + di + 2]
+				mov [pillarsX + di], ax
+				add di, 2
+				loop .shiftArr
+			pop cx
+			mov word [pillarsX + 6], 320
+	.ext:
+	
+	;call copyFromBuffer
+	call moveGround
+	jmp .gameloop
+
+exit:
+mov ax, 0x4c00
+int 0x21
+
 		; add  word [pipe2X], 25
 		; push word [pipe2X]     ;x
 		; sub  word [pipe2X], 25
@@ -388,16 +411,8 @@ start:
 		; push 80               ;height
 		; push barrier          ;pixel data
 		; call drawRectTransInv
-		
-		sub word [pipe2X], 2
-		cmp word [pipe2X], -28
-		jne .st
-		mov word [pipe2X], 320-28
-		.st:
-	call copyFromBuffer
-
-	jmp .gameloop
-
-exit:
-mov ax, 0x4c00
-int 0x21
+		; 		sub word [pipe2X], 2
+		; cmp word [pipe2X], -28
+		; jne .st
+		; mov word [pipe2X], 320-28
+		; .st:
