@@ -1,0 +1,57 @@
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# Environment files
+*.local
+.env
+
+# NASM and related executables
+nasmW.exe
+nasm.exe
+AFD.exe
+DOSBoxPortable.exe - Shortcut
+
+# Generated binary files (assembly outputs)
+*.o
+*.obj
+*.bin
+*.hex
+*.elf
+*.map
+*.iso
+
+# Temporary files and artifacts
+*.tmp
+*.temp
+*.bak
+*.swp
+*.swn
+
+# Disk images and related files
+*.img
+*.vhd
+*.vdi
+*.vmdk
+
+# Editor directories and files
+.vscode/
+!.vscode/extensions.json
+.idea/
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# Debugger and emulator files
+*.lst
+*.dmp
+*.dbg
+*.sym
+*.trace
