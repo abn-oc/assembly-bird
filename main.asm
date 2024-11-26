@@ -3,7 +3,7 @@ jmp start
 
 ;variables
 pillarsX: dw 170, 250, 330, 410
-pillarsY: dw 100, 30, 10, 20
+pillarsY: dw 100, 70, 80, 90
 
 pipeX:    dw 170
 pipeY:    dw 100
@@ -221,12 +221,16 @@ drawRectTrans:
 drawRectTransInv:   
 	push bp
 	mov  bp, sp
+	sub  sp, 4
+
 	pushA
 	mov  ax, 0xA000
 	mov  es, ax
 	
 	mov si, [bp + 4]  ;pixel data
 	mov di, [bp + 12] ;x
+	mov [bp - 2], di
+	mov [bp - 4], di
 	;moving di to the required y cord
 	mov bx, [bp + 10] ;y
 	.ydi:
@@ -237,8 +241,16 @@ drawRectTransInv:
 	mov dx, [bp + 6] ;h
 
 	.printRect:
-		mov         cx, bx
+		mov cx, bx
+		push bx
+		mov  bx, [bp - 4]
+		mov  [bp - 2], bx
+		pop  bx
 		.printLine:        ;explain this part wali....
+			cmp word [bp - 2], 0
+			jl  .cont
+			cmp word [bp - 2], 320
+			jge .cont
 			mov al, [ds:si]
             cmp al, 0x0F
 			je  .cont
@@ -248,6 +260,7 @@ drawRectTransInv:
 			
 			mov  byte [es:di], al
 			.cont:
+			add  word [bp - 2], 1
 			inc  di
 			inc  si
 			loop .printLine
@@ -261,6 +274,7 @@ drawRectTransInv:
 		jnz .printRect
 		.exitfunc:
 		popA
+		add sp, 4
 		pop bp
 		ret 10
 
@@ -390,16 +404,18 @@ start:
 			add  word [pillarsX + si], 25
 			push word [pillarsX + si]     ;x
 			sub  word [pillarsX + si], 25
-			push word 70  ;y
+			push  word [pillarsY + si]
+
 			;push word 100  ;y
 
-			push 4             ;width
+			push 6             ;width
 			push 80            ;height
 	 		push bg            ;pixel data
 			call drawCroppedBG
+			
 		
 			push word [pillarsX + si]     ;x
-			push word 70  ;y
+			push  word [pillarsY + si]
 			push 26            ;width
 			push 80            ;height
 			push barrier       ;pixel data
