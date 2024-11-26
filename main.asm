@@ -2,13 +2,12 @@
 jmp start
 
 ;variables
-pillarsX: dw 170, 250, 330, 410
-pillarsY: dw 100, 70, 80, 90
+pillarsX: dw 170, 250, 330
+pillarsY: dw 95, 120, 150	;keep y coordinate 95(highest) or above and dont make it above 150(lowest)
 
-pipeX:    dw 170
-pipeY:    dw 100
-pipe2X:   dw 170
-pipe2Y:   dw 70
+pillarsXInv: dw 170, 250, 330
+pillarsYInv: dw 30, 60, 75  ;keep y coordinate 30(highest) or above and dont make it above 75(lowest)
+
 prevCol: times 26 db 0
 
 ;included files
@@ -388,6 +387,15 @@ wait_vsync:
     int  0x10     ; Call BIOS video interrupt
 	pop  ax
     ret
+	
+delay:
+	push cx
+	mov cx, 0xffff
+	.a: loop .a
+	mov cx, 0xffff
+	.b: loop .b
+	pop cx
+	ret
 
 start:
 
@@ -397,10 +405,11 @@ start:
 	
 	.gameloop:
 
-		mov cx, 4
+		mov cx, 3
 		mov si, 0
 		.drawPillars:
-
+			
+			;drawing cropped bg for down pipe
 			add  word [pillarsX + si], 25
 			push word [pillarsX + si]     ;x
 			sub  word [pillarsX + si], 25
@@ -408,39 +417,72 @@ start:
 
 			;push word 100  ;y
 
-			push 6             ;width
+			push 2             ;width
 			push 80            ;height
 	 		push bg            ;pixel data
 			call drawCroppedBG
 			
-		
+			;drawing cropped bg for up pipe
+			add word [pillarsXInv + si], 25
+			push word [pillarsXInv + si]		;x
+			sub word [pillarsXInv + si], 25
+			push word 0							;y
+			push 2								;width
+			add word [pillarsYInv + si], 1
+			push word [pillarsYInv + si]		;height
+			sub word [pillarsYInv + si], 1
+			push bg		;pixel data
+			call drawCroppedBG
+			
+			;drawing sprite of down pipe
 			push word [pillarsX + si]     ;x
 			push  word [pillarsY + si]
 			push 26            ;width
 			push 80            ;height
 			push barrier       ;pixel data
 			call drawRectTrans
-			sub  word [pillarsX + si], 3
+			sub  word [pillarsX + si], 1
+			
+			;drawing sprite of up pipe
+			push word [pillarsXInv + si]	;x
+			push word [pillarsYInv + si]	;y
+			push 26							;width
+			push 80							;height
+			push barrier					;pixel data
+			call drawRectTransInv
+			sub  word [pillarsXInv + si], 1
+			
 			add si, 2 ; draw the next pillar
 			
+			;adding delay to maybe reduce tearing
+			call delay
+			call delay
+			
 		loop .drawPillars
-
+		
+		;code for warping pillars
 			cmp word [pillarsX], -26
 			jnl .ext
 			push cx
-			mov cx, 3
+			mov cx, 2
 			mov di, 0
 			.shiftArr:
 				mov ax, [pillarsX + di + 2]
 				mov [pillarsX + di], ax
 				mov ax, [pillarsY + di + 2]
 				mov [pillarsY + di], ax
+				mov ax, [pillarsXInv + di + 2]
+				mov [pillarsXInv + di], ax
+				mov ax, [pillarsYInv + di + 2]
+				mov [pillarsYInv + di], ax
 
 				add di, 2
 				loop .shiftArr
 			pop cx
-			mov word [pillarsX + 6], 320
-			mov word [pillarsY + 6], 70
+			mov word [pillarsX + 4], 320
+			mov word [pillarsY + 4], 100	;temp hardcoded value: will be randomized later
+			mov word [pillarsXInv + 4], 320
+			mov word [pillarsYInv + 4], 70	;temp hardcoded value: will be randomized later
 
 	.ext:
 	
@@ -474,3 +516,4 @@ int 0x21
 		; jne .st
 		; mov word [pipe2X], 320-28
 		; .st:
+		
