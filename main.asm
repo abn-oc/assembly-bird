@@ -3,7 +3,7 @@ jmp start
 
 ;variables
 pillarsX: dw 170, 250, 330, 410
-pillarsy: dw 80, 30, 50, 100
+pillarsY: dw 100, 30, 10, 20
 
 pipeX:    dw 170
 pipeY:    dw 100
@@ -129,7 +129,36 @@ copyLoop:
 	pop si
     ret
 
+saveBG:
+	push bp
+	mov bp, sp
+	pushA
+	push ds
+	push es
 
+	mov ax, 0xE000
+	mov es, ax
+	mov ax, 0xA000
+	mov ds, ax
+
+	xor di, di
+	xor si, si
+
+	mov cx, 64000
+
+	.draw:
+		mov ax, [ds:si]
+		mov [es:di], ax
+		add si, 2
+		add di, 2
+		loop .draw
+
+	pop es
+	pop ds
+	popA
+	mov sp, bp
+	pop bp
+	ret
 drawRectTrans:   
 	push bp
 	mov  bp, sp
@@ -152,9 +181,9 @@ drawRectTrans:
 	mov dx, [bp + 6] ;h
 
 	.printRect:
-		mov  cx,       bx
+		mov  cx, bx
 		push bx
-		mov  bx,       [bp - 4]
+		mov  bx, [bp - 4]
 		mov  [bp - 2], bx
 		pop  bx
 		.printLine:
@@ -162,12 +191,12 @@ drawRectTrans:
 			jl  .cont
 			cmp word [bp - 2], 320
 			jge .cont
-			mov al,            [ds:si]
-            cmp al,            0x0F
+			mov al, [ds:si]
+            cmp al, 0x0F
 			je  .cont
-			cmp al,            0x10
+			cmp al, 0x10
 			je  .cont
-			add al,            55
+			add al, 55
 			
 			mov  byte [es:di],  al
 			.cont:
@@ -187,7 +216,7 @@ drawRectTrans:
 		popA
 		add sp, 4
 		pop bp
-		ret 
+		ret 10
 		
 drawRectTransInv:   
 	push bp
@@ -239,8 +268,14 @@ drawCroppedBG:
 	push bp
 	mov  bp, sp
 	pushA
+	push ds
+	push es
+
 	mov  ax, 0xA000
 	mov  es, ax
+
+	mov ax, 0xE000
+	mov ds, ax
 
 	mov si, [bp + 4]  ;pixel data
 	mov di, [bp + 12] ;x
@@ -249,7 +284,6 @@ drawCroppedBG:
 	mov bx, [bp + 10] ;y
 	.ydi:
 		add di, 320
-		add si, 160
 		sub bx, 1
 		jnz .ydi
 
@@ -259,10 +293,9 @@ drawCroppedBG:
 	.printRect:
 		mov cx, bx
 		.printLine:  
-			mov  al, [ds:si]
+			mov  al, [ds:di]
 			mov  [es:di], al
 			inc  di
-			inc  si
 			loop .printLine
 		;exit function if on ground line
 		cmp di, 320*172
@@ -275,6 +308,8 @@ drawCroppedBG:
 		jnz .printRect
 
 		.exitfunc:
+		pop es
+		pop ds
 		popA
 		pop bp
 		ret 10
@@ -333,7 +368,6 @@ moveGround:
 	pop bp
 	ret
 
-
 wait_vsync:
 	push ax
     mov  al, 0x8A ; 0x8A is the interrupt for vertical retrace in DOS
@@ -345,6 +379,7 @@ start:
 
 	call initResPalette
 	call drawBG
+	call saveBG
 	
 	.gameloop:
 
@@ -355,14 +390,16 @@ start:
 			add  word [pillarsX + si], 25
 			push word [pillarsX + si]     ;x
 			sub  word [pillarsX + si], 25
-			push word [pipeY]  ;y
+			push word 70  ;y
+			;push word 100  ;y
+
 			push 4             ;width
 			push 80            ;height
 	 		push bg            ;pixel data
 			call drawCroppedBG
 		
 			push word [pillarsX + si]     ;x
-			push word [pipeY]  ;y
+			push word 70  ;y
 			push 26            ;width
 			push 80            ;height
 			push barrier       ;pixel data
@@ -372,7 +409,7 @@ start:
 			
 		loop .drawPillars
 
-			cmp word [pillarsX], -25
+			cmp word [pillarsX], -26
 			jnl .ext
 			push cx
 			mov cx, 3
@@ -380,10 +417,15 @@ start:
 			.shiftArr:
 				mov ax, [pillarsX + di + 2]
 				mov [pillarsX + di], ax
+				mov ax, [pillarsY + di + 2]
+				mov [pillarsY + di], ax
+
 				add di, 2
 				loop .shiftArr
 			pop cx
 			mov word [pillarsX + 6], 320
+			mov word [pillarsY + 6], 70
+
 	.ext:
 	
 	;call copyFromBuffer
