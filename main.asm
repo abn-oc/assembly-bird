@@ -5,7 +5,6 @@ jmp start
 pillarsX: dw 170, 250, 330
 pillarsY: dw 95, 120, 150	;keep y coordinate 95(highest) or above and dont make it above 150(lowest)
 
-pillarsXInv: dw 170, 250, 330
 pillarsYInv: dw 30, 60, 75  ;keep y coordinate 30(highest) or above and dont make it above 75(lowest)
 
 prevCol: times 26 db 0
@@ -415,23 +414,9 @@ start:
 			sub  word [pillarsX + si], 25
 			push  word [pillarsY + si]
 
-			;push word 100  ;y
-
-			push 2             ;width
+			push 4             ;width
 			push 80            ;height
 	 		push bg            ;pixel data
-			call drawCroppedBG
-			
-			;drawing cropped bg for up pipe
-			add word [pillarsXInv + si], 25
-			push word [pillarsXInv + si]		;x
-			sub word [pillarsXInv + si], 25
-			push word 0							;y
-			push 2								;width
-			add word [pillarsYInv + si], 1
-			push word [pillarsYInv + si]		;height
-			sub word [pillarsYInv + si], 1
-			push bg		;pixel data
 			call drawCroppedBG
 			
 			;drawing sprite of down pipe
@@ -442,22 +427,33 @@ start:
 			push barrier       ;pixel data
 			call drawRectTrans
 			sub  word [pillarsX + si], 1
+
+			; drawing cropped bg for up pipe
+			add word [pillarsX + si], 25
+			push word [pillarsX + si]		;x
+			sub word [pillarsX + si], 25
+			push word 1							;y
+
+			push 4								;width
+			; add word [pillarsYInv + si], 1
+			; push word [pillarsYInv + si]		;height
+			; sub word [pillarsYInv + si], 1
+			push 80
+			push bg		;pixel data
+			call drawCroppedBG
+
+			;drawing cropped bg for down pipe
 			
 			;drawing sprite of up pipe
-			push word [pillarsXInv + si]	;x
+			push word [pillarsX + si]	;x
 			push word [pillarsYInv + si]	;y
 			push 26							;width
 			push 80							;height
 			push barrier					;pixel data
 			call drawRectTransInv
-			sub  word [pillarsXInv + si], 1
+			sub  word [pillarsX + si], 1
 			
 			add si, 2 ; draw the next pillar
-			
-			;adding delay to maybe reduce tearing
-			call delay
-			call delay
-			
 		loop .drawPillars
 		
 		;code for warping pillars
@@ -471,8 +467,6 @@ start:
 				mov [pillarsX + di], ax
 				mov ax, [pillarsY + di + 2]
 				mov [pillarsY + di], ax
-				mov ax, [pillarsXInv + di + 2]
-				mov [pillarsXInv + di], ax
 				mov ax, [pillarsYInv + di + 2]
 				mov [pillarsYInv + di], ax
 
@@ -481,7 +475,6 @@ start:
 			pop cx
 			mov word [pillarsX + 4], 320
 			mov word [pillarsY + 4], 100	;temp hardcoded value: will be randomized later
-			mov word [pillarsXInv + 4], 320
 			mov word [pillarsYInv + 4], 70	;temp hardcoded value: will be randomized later
 
 	.ext:
@@ -493,27 +486,3 @@ start:
 exit:
 mov ax, 0x4c00
 int 0x21
-
-		; add  word [pipe2X], 25
-		; push word [pipe2X]     ;x
-		; sub  word [pipe2X], 25
-		; push word 0            ;y
-		; push 4                 ;width
-		; add  word [pipe2Y], 1
-		; push word [pipe2Y]     ;height
-		; sub  word [pipe2Y], 1
-		; push bg                ;pixel data
-		; call drawCroppedBG
-		
-		; push word [pipe2X]    ;x
-		; push word [pipe2Y]    ;y
-		; push 26               ;width
-		; push 80               ;height
-		; push barrier          ;pixel data
-		; call drawRectTransInv
-		; 		sub word [pipe2X], 2
-		; cmp word [pipe2X], -28
-		; jne .st
-		; mov word [pipe2X], 320-28
-		; .st:
-		
