@@ -190,11 +190,17 @@ drawRectTrans:
 			cmp word [bp - 2], 320
 			jge .cont
 			mov al, [ds:si]
+			
+			cmp word [bp + 16], 1
+			je .isBird
             cmp al, 0x0F
 			je  .cont
 			cmp al, 0x10
 			je  .cont
-			add al, 55
+			.isBird:
+		 	cmp al, 0x00
+			je  .cont
+			add al, [bp + 14]
 			
 			mov  byte [es:di],  al
 			.cont:
@@ -214,7 +220,7 @@ drawRectTrans:
 		popA
 		add sp, 4
 		pop bp
-		ret 10
+		ret 14
 		
 drawRectTransInv:   
 	push bp
@@ -404,6 +410,16 @@ start:
 	
 	.gameloop:
 
+		; Have to draw the bird here
+			push 1
+			push 90
+			push 10     ;x
+			push 10
+			push 30            ;width
+			push 21            ;height
+			push bird_pixel_data       ;pixel data
+			call drawRectTrans
+
 		mov cx, 3
 		mov si, 0
 		.drawPillars:
@@ -420,6 +436,8 @@ start:
 			call drawCroppedBG
 			
 			;drawing sprite of down pipe
+			push 0 ;isBird = false
+			push 55
 			push word [pillarsX + si]     ;x
 			push  word [pillarsY + si]
 			push 26            ;width
