@@ -4,14 +4,35 @@ jmp start
 ;variables
 pillarsX: dw 170, 250, 330
 pillarsY: dw 95, 120, 150	;keep y coordinate 95(highest) or above and dont make it above 150(lowest)
-
 pillarsYInv: dw 30, 60, 75  ;keep y coordinate 30(highest) or above and dont make it above 75(lowest)
 
 prevCol: times 26 db 0
 
+bird: db 0
+timerCounter: db 0
+
 ;included files
 %include'bgpalette.asm'
 %include'barrier.asm'
+
+timerInt:
+	add byte [timerCounter], 1
+
+	cmp byte [timerCounter], 200
+	jl .End
+	mov byte [timerCounter], 0
+	cmp byte [bird], 1
+	je .putZero
+		mov byte [bird], 1
+		jmp .End	
+	.putZero: 
+		mov byte [bird], 0
+
+	.End:
+	mov al, 0x20
+	out 0x20, al
+	iret
+
 
 ;functions
 initResPalette:
@@ -404,13 +425,30 @@ delay:
 
 start:
 
+	mov ax, 0
+	mov es, ax
+	cli ; disable interrupts
+	mov word [es:8*4], timerInt; store offset at n*4
+	mov [es:8*4+2], cs ; store segment at n*4+2
+	sti ; enable interrupts
+
 	call initResPalette
 	call drawBG
 	call saveBG
 	
 	.gameloop:
 
-		; Have to draw the bird here
+			; Have to draw the bird here
+			push word 10		;x
+			push word 10							;y
+			push 31								;width
+			push 21
+			push bg		;pixel data
+			call drawCroppedBG
+
+			cmp byte [bird], 0
+			je .drawBird2
+
 			push 1
 			push 90
 			push 10     ;x
@@ -418,7 +456,19 @@ start:
 			push 30            ;width
 			push 21            ;height
 			push bird_pixel_data       ;pixel data
+			call drawRectTrans	
+			jmp .warpPillars
+
+			.drawBird2:
+			push 1
+			push 169
+			push 10     ;x
+			push 10
+			push 30            ;width
+			push 21            ;height
+			push bird2_pixel_data       ;pixel data
 			call drawRectTrans
+
 
 		mov cx, 3
 		mov si, 0
@@ -453,9 +503,6 @@ start:
 			push word 1							;y
 
 			push 4								;width
-			; add word [pillarsYInv + si], 1
-			; push word [pillarsYInv + si]		;height
-			; sub word [pillarsYInv + si], 1
 			push 80
 			push bg		;pixel data
 			call drawCroppedBG
@@ -474,6 +521,9 @@ start:
 			add si, 2 ; draw the next pillar
 		loop .drawPillars
 		
+
+			;+169
+		.warpPillars:
 		;code for warping pillars
 			cmp word [pillarsX], -26
 			jnl .ext
