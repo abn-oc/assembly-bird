@@ -8,19 +8,19 @@ pillarsYInv: dw 30, 60, 75  ;keep y coordinate 30(highest) or above and dont mak
 
 prevCol: times 26 db 0
 
+timerCounter: dw 0
 bird: db 0
-timerCounter: db 0
 
 ;included files
 %include'bgpalette.asm'
 %include'barrier.asm'
 
 timerInt:
-	add byte [timerCounter], 1
+	add word [timerCounter], 1
 
-	cmp byte [timerCounter], 200
+	cmp word [timerCounter], 200
 	jl .End
-	mov byte [timerCounter], 0
+	mov word [timerCounter], 0
 	cmp byte [bird], 1
 	je .putZero
 		mov byte [bird], 1
