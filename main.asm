@@ -2,25 +2,30 @@
 jmp start
 
 ;variables
-pillarsX: dw 170, 250, 330
-pillarsY: dw 95, 120, 150	;keep y coordinate 95(highest) or above and dont make it above 150(lowest)
-pillarsYInv: dw 30, 60, 75  ;keep y coordinate 30(highest) or above and dont make it above 75(lowest)
+pillarYPrev: dw 0
+numOfPipes: dw 4
+pillarsX: dw 170, 250, 330, 410
+pillarsY: dw 60+60, 80+60, 45+60, 70+60 	;keep y coordinate 95(highest) or above and dont make it above 150(lowest)
+pillarsYInv: dw 60, 80, 45, 70  ;keep y coordinate 30(highest) or above and dont make it above 75(lowest)
+birdY: dw 90
+birdDir: db 'D'
 
 prevCol: times 26 db 0
 
-timerCounter: dw 0
+timerCounter: db 0
 bird: db 0
 
 ;included files
 %include'bgpalette.asm'
 %include'barrier.asm'
 
+;interrupts
 timerInt:
-	add word [timerCounter], 1
+	add byte [timerCounter], 1
 
-	cmp word [timerCounter], 200
+	cmp byte [timerCounter], 200
 	jl .End
-	mov word [timerCounter], 0
+	mov byte [timerCounter], 0
 	cmp byte [bird], 1
 	je .putZero
 		mov byte [bird], 1
@@ -33,6 +38,32 @@ timerInt:
 	out 0x20, al
 	iret
 
+kbisr:
+    push ax
+    push es
+
+    in al, 0x60         ; Read scan code from keyboard controller
+    cmp al, 0x39        ; Check if the key is the spacebar
+    je space_pressed    ; Jump if spacebar is pressed (make code)
+    cmp al, 0xB9        ; Check if the key is spacebar release (break code)
+    je space_released   ; Jump if spacebar is released
+    jmp out1             ; Exit for other keys
+
+space_pressed:
+    mov byte [birdDir], 'U' ; Set bird direction to 'U' (up)
+    jmp out1
+
+space_released:
+    mov byte [birdDir], 'D' ; Set bird direction to 'D' (down)
+    jmp out1
+
+out1:
+    mov al, 0x20
+    out 0x20, al        ; Send EOI to PIC
+
+    pop es
+    pop ax
+    iret
 
 ;functions
 initResPalette:
@@ -258,10 +289,13 @@ drawRectTransInv:
 	mov [bp - 4], di
 	;moving di to the required y cord
 	mov bx, [bp + 10] ;y
+	cmp bx, 0
+	je .cont1
 	.ydi:
 		add di, 320
 		sub bx, 1
 		jnz .ydi
+	.cont1:
 	mov bx, [bp + 8] ;w 
 	mov dx, [bp + 6] ;h
 
@@ -321,11 +355,14 @@ drawCroppedBG:
 	add si, di
 	;moving di to the required y cord
 	mov bx, [bp + 10] ;y
+	cmp bx, 0
+	je .cont
 	.ydi:
 		add di, 320
 		sub bx, 1
 		jnz .ydi
-
+	
+	.cont:
 	mov bx, [bp + 8] ;w 
 	mov dx, [bp + 6] ;h
 
@@ -360,7 +397,7 @@ moveGround:
 	
 	mov ax, 0xA000
 	mov es, ax
-
+	
 	;Copying leftmost column 
     mov di, 173*320
     mov si, prevCol
@@ -403,8 +440,34 @@ moveGround:
         add  di,           320
         loop pasteCol
 	
+	retmg:
     popA
 	pop bp
+	ret
+	
+checkCollision:
+	pusha
+	mov word si, 0
+	.l1:
+		cmp word [pillarsX + si], 40
+		je .lose
+		jne .cont
+		.lose: call lose
+		.cont:
+		add si, 1
+		cmp si, [numOfPipes]
+		je .ret
+		jne .l1
+		jnz .l1
+	.ret:
+	popa
+	ret
+	
+lose:
+	pusha
+	; mov ax, 0x4c00
+	; int 0x21
+	popa
 	ret
 
 wait_vsync:
@@ -425,6 +488,14 @@ delay:
 
 start:
 
+	;hooking keyboard interrupt for jumps
+	xor ax, ax
+	mov es, ax
+	cli
+	mov word [es:9*4], kbisr	
+	mov [es:9*4+2], cs
+	sti	
+
 	mov ax, 0
 	mov es, ax
 	cli ; disable interrupts
@@ -437,22 +508,41 @@ start:
 	call saveBG
 	
 	.gameloop:
-
+			
+			;checking collision
+			call checkCollision
+			
 			; Have to draw the bird here
-			push word 10		;x
-			push word 10							;y
-			push 31								;width
-			push 21
+			push word 9		;x
+			sub word [birdY], 1
+			push word [birdY]							;y
+			add word [birdY], 1
+			push word 31								;width
+			push 22
 			push bg		;pixel data
 			call drawCroppedBG
+	
+			;updating birdY
+			cmp byte [birdDir], 'D'
+			jne .movingUp
+			add word [birdY], 1
+			cmp word [birdY], 172-21
+			je lose
+			jmp .contGameLoop
+			.movingUp:
+				cmp word [birdY], 5
+				je .contGameLoop
+				sub word [birdY], 1
+			.contGameLoop:
 
 			cmp byte [bird], 0
 			je .drawBird2
 
+			;drawing Bird
 			push 1
 			push 90
 			push 10     ;x
-			push 10
+			push word [birdY]		;y
 			push 30            ;width
 			push 21            ;height
 			push bird_pixel_data       ;pixel data
@@ -463,14 +553,14 @@ start:
 			push 1
 			push 169
 			push 10     ;x
-			push 10
+			push word [birdY]		;y
 			push 30            ;width
 			push 21            ;height
 			push bird2_pixel_data       ;pixel data
 			call drawRectTrans
 
 
-		mov cx, 3
+		mov cx, 4
 		mov si, 0
 		.drawPillars:
 			
@@ -500,10 +590,12 @@ start:
 			add word [pillarsX + si], 25
 			push word [pillarsX + si]		;x
 			sub word [pillarsX + si], 25
-			push word 1							;y
+			push word 0							;y
 
 			push 4								;width
-			push 80
+			add word [pillarsYInv + si], 1
+			push word [pillarsYInv + si]
+			sub word [pillarsYInv + si], 1
 			push bg		;pixel data
 			call drawCroppedBG
 
@@ -528,8 +620,12 @@ start:
 			cmp word [pillarsX], -26
 			jnl .ext
 			push cx
-			mov cx, 2
+			mov cx, 3
 			mov di, 0
+			push ax
+			mov ax, [pillarsYInv]
+			mov [pillarYPrev], ax
+			pop ax
 			.shiftArr:
 				mov ax, [pillarsX + di + 2]
 				mov [pillarsX + di], ax
@@ -541,9 +637,13 @@ start:
 				add di, 2
 				loop .shiftArr
 			pop cx
-			mov word [pillarsX + 4], 320
-			mov word [pillarsY + 4], 100	;temp hardcoded value: will be randomized later
-			mov word [pillarsYInv + 4], 70	;temp hardcoded value: will be randomized later
+			mov word [pillarsX + 6], 320
+			push ax
+			mov ax, [pillarYPrev]
+			mov word [pillarsYInv + 6], ax;temp hardcoded value: will be randomized later
+			add ax, 60
+			mov word [pillarsY + 6], ax	;temp hardcoded value: will be randomized later
+			pop ax
 
 	.ext:
 	
