@@ -449,25 +449,39 @@ checkCollision:
 	pusha
 	mov word si, 0
 	.l1:
-		cmp word [pillarsX + si], 40
+		cmp word [pillarsX + si], 38
 		je .lose
-		jne .cont
-		.lose: call lose
+		; jne .cont
+		jmp .cont
+		.lose:
+		;call lose
+		;check lower pipe collision
+		mov ax, [birdY]
+		add ax, 20
+		cmp word ax, [pillarsY + si]
+		jg .callLose
+		
+		sub ax, 20
+		;check upper pipe collision
+		cmp word ax, [pillarsYInv + si]
+		jl .callLose
 		.cont:
 		add si, 1
 		cmp si, [numOfPipes]
 		je .ret
 		jne .l1
-		jnz .l1
+
+	.callLose:
+	call lose
 	.ret:
 	popa
 	ret
 	
 lose:
-	pusha
-	; mov ax, 0x4c00
-	; int 0x21
-	popa
+	;pusha
+	mov ax, 0x4c00
+	int 0x21
+	;popa
 	ret
 
 wait_vsync:
