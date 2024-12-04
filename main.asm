@@ -244,7 +244,7 @@ gameOver:
     mov dh, 24     ; Row (passed from caller)
     mov dl, 0         ; Column (calculated above)
     int 10h
-	
+
 	mov ax, 0x4c00
 	int 21h
 
@@ -523,58 +523,48 @@ drawRectTransInv:
 		pop bp
 		ret 10
 
+
 drawCroppedBG:   
 	push bp
 	mov  bp, sp
+
 	pushA
 	push ds
 	push es
 
-	mov  ax, 0xA000
-	mov  es, ax
+	mov ax, 0xA000
+	mov es, ax
 
 	mov ax, 0xE000
 	mov ds, ax
 
-	mov si, [bp + 4]  ;pixel data
-	mov di, [bp + 12] ;x
-	add si, di
-	;moving di to the required y cord
-	mov bx, [bp + 10] ;y
-	cmp bx, 0
-	je .cont
-	.ydi:
-		add di, 320
-		sub bx, 1
-		jnz .ydi
-	
-	.cont:
-	mov bx, [bp + 8] ;w 
-	mov dx, [bp + 6] ;h
+	mov ax, 320
+	mul word [bp + 8]
+	add ax, [bp + 10]
+	mov di, ax
+
+	mov cx, [bp + 4] ; height
 
 	.printRect:
-		mov cx, bx
+		push cx
+		mov cx, [bp + 6] ; width
 		.printLine:  
 			mov  al, [ds:di]
 			mov  [es:di], al
 			inc  di
 			loop .printLine
-		;exit function if on ground line
+		pop cx
 		cmp di, 320*172
 		jae .exitfunc
 		add di, 320
 		sub di, bx
-		add si, 160
-		sub si, bx
-		dec dx
-		jnz .printRect
-
-		.exitfunc:
+		loop .printRect
+	.exitfunc:
 		pop es
 		pop ds
 		popA
 		pop bp
-		ret 10
+		ret 8
 
 moveGround:
 	push bp
@@ -805,7 +795,6 @@ start:
 			add word [birdY], 1
 			push word 31								;width
 			push 22
-			push bg		;pixel data
 			call drawCroppedBG
 	
 			;updating birdY
@@ -858,7 +847,6 @@ start:
 
 			push 4             ;width
 			push 80            ;height
-	 		push bg            ;pixel data
 			call drawCroppedBG
 			
 			;drawing sprite of down pipe
@@ -882,7 +870,6 @@ start:
 			add word [pillarsYInv + si], 1
 			push word [pillarsYInv + si]
 			sub word [pillarsYInv + si], 1
-			push bg		;pixel data
 			call drawCroppedBG
 
 			;drawing cropped bg for down pipe

@@ -15,6 +15,11 @@ nasmW.exe
 nasm.exe
 AFD.exe
 DOSBoxPortable.exe - Shortcut
+flappy.com
+main.com
+*.com
+stupid.asm
+runCode.bat
 
 # Generated binary files (assembly outputs)
 *.o
