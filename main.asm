@@ -79,31 +79,30 @@ timerInt:
 kbisr:
     push ax
     push es
-
     in al, 0x60         ; Read scan code from keyboard controller
+	cmp al, 0xB9        ; Check if the key is spacebar release (break code)
+    je .spaceReleased   ; Jump if spacebar is released
     cmp al, 0x39        ; Check if the key is the spacebar
-    je space_pressed    ; Jump if spacebar is pressed (make code)
-    cmp al, 0xB9        ; Check if the key is spacebar release (break code)
-    je space_released   ; Jump if spacebar is released
+    je .spacePressed    ; Jump if spacebar is pressed (make code)
 	cmp al, 01h
-	je pauseGame
-    jmp out1             ; Exit for other keys
+	je .pauseGame
+    jmp .outKbIsr        ; Exit for other keys
 	
 
-space_pressed:
-    mov byte [birdDir], 'U' ; Set bird direction to 'U' (up)
-    jmp out1
+.spacePressed:
+    mov byte [birdDir], 'U'
+    jmp .outKbIsr
 
-space_released:
-    mov byte [birdDir], 'D' ; Set bird direction to 'D' (down)
-    jmp out1
+.spaceReleased:
+    mov byte [birdDir], 'D'
+    jmp .outKbIsr
 
-pauseGame:
+.pauseGame:
 	mov byte [pauseFlag], 1
 
-out1:
+.outKbIsr:
     mov al, 0x20
-    out 0x20, al        ; Send EOI to PIC
+    out 0x20, al
 
     pop es
     pop ax
