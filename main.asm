@@ -1,6 +1,10 @@
 [org 0x100]
 jmp start
 
+;included files
+%include'bgpalette.asm'
+%include'barrier.asm'
+
 ;variables
 pillarYPrev: dw 0
 numOfPipes: dw 4
@@ -15,9 +19,19 @@ prevCol: times 26 db 0
 timerCounter: db 0
 bird: db 0
 
-;included files
-%include'bgpalette.asm'
-%include'barrier.asm'
+
+line1: db '  ______                _____  _______            ____  _____ ____  _____   $'
+line2: db ' |  ___|  |        /\   |  __ \|  __ \  \   / /  |  _ \  | | ___  | | __ \   $'
+line3: db ' | |__  | |       /  \  | |) | | |) | |  \ / /   | |)| | | | |  | | | | |  $'
+line4: db ' |  __| | |      / /\ \ |  ___/|  ___/  \   /    |  _ <  | |  _  /  | | | | $'
+line5: db ' | |    | |____ / ____ \| |    | |       | |     | |)| | | | | \ \  | | | | $'
+line6: db ' | |    |//    \\|    | |      | |       | |     \ \/ /  | | |  \ \ | |/ /  $' 
+line7: db 'A Game by: $'
+line8: db 'Abdullah Ihtasham       	23L-2515 $'
+line9: db 'Muhammad Wali 			23L-00855 $'
+line10: db '                         FALL 2024 $'
+line11: db '                            Press Enter to Start   $'
+
 
 ;interrupts
 timerInt:
@@ -500,8 +514,156 @@ delay:
 	pop cx
 	ret
 
-start:
+drawMenu:
+    push bp
+    mov bp, sp
+    pushA
 
+	mov ax, 0xb800
+	mov es, ax
+
+	mov cx, 80*25
+	mov di, 0
+	mov ax, 0x0720
+	
+	.clrScr:
+		stosw
+		loop .clrScr
+
+    ; Save the original cursor position
+    mov ah, 03h           ; Service 3 - Get cursor position
+    mov bh, 0             ; Page 0
+    int 10h
+    push dx               ; Save the original cursor position on the stack
+
+    ; Set the screen text color to yellow
+    mov ax, 0x0E00        ; BIOS Teletype output service (for yellow text)
+    mov bl, 0x0E          ; Yellow foreground
+    mov ah, 0x09          ; Write character attribute
+    int 10h
+
+    ; Draw each line at its respective position
+    ; Line 1
+    mov ah, 02h           ; Service 2 - Set cursor position
+    mov bh, 0             ; Page 0
+    mov dh, 3             ; Row 3
+    mov dl, 1            ; Column 10
+    int 10h
+    mov dx, line1
+    mov ah, 09h           ; Service 9 - Write string to standard output
+    int 21h
+
+    ; Line 2
+    mov ah, 02h
+    mov dh, 4
+    mov dl, 1
+    int 10h
+    mov dx, line2
+    mov ah, 09h
+    int 21h
+
+    ; Line 3
+    mov ah, 02h
+    mov dh, 5
+    mov dl, 1
+    int 10h
+    mov dx, line3
+    mov ah, 09h
+    int 21h
+
+    ; Line 4
+    mov ah, 02h
+    mov dh, 6
+    mov dl, 1
+    int 10h
+    mov dx, line4
+    mov ah, 09h
+    int 21h
+
+    ; Line 5
+    mov ah, 02h
+    mov dh, 7
+    mov dl, 1
+    int 10h
+    mov dx, line5
+    mov ah, 09h
+    int 21h
+
+    ; Line 6
+    mov ah, 02h
+    mov dh, 8
+    mov dl, 1
+    int 10h
+    mov dx, line6
+    mov ah, 09h
+    int 21h
+
+    ; Line 7
+    mov ah, 02h
+    mov dh, 9
+    mov dl, 1
+    int 10h
+    mov dx, line7
+    mov ah, 09h
+    int 21h
+
+    ; Line 8
+    mov ah, 02h
+    mov dh, 10
+    mov dl, 1
+    int 10h
+    mov dx, line8
+    mov ah, 09h
+    int 21h
+
+    ; Line 9
+    mov ah, 02h
+    mov dh, 11
+    mov dl, 1
+    int 10h
+    mov dx, line9
+    mov ah, 09h
+    int 21h
+
+    ; Line 10
+    mov ah, 02h
+    mov dh, 12
+    mov dl, 1
+    int 10h
+    mov dx, line10
+    mov ah, 09h
+    int 21h
+
+    ; Line 11
+    mov ah, 02h
+    mov dh, 17
+    mov dl, 1
+    int 10h
+    mov dx, line11
+    mov ah, 09h
+    int 21h
+
+    ; Restore the original cursor position
+    pop dx
+    mov ah, 02h           ; Service 2 - Set cursor position
+    mov bh, 0             ; Page 0
+    int 10h
+
+	.delayWithK:
+		mov ah, 0 ; service 0 – get keystroke
+		int 0x16 ;
+		cmp al, 0x0D ; check if enter key is pressed
+		jne .delayWithK ; if not, keep waiting
+
+	.cont:
+    popA
+    mov sp, bp
+    pop bp
+    ret
+
+
+start:
+	call drawMenu;
 	;hooking keyboard interrupt for jumps
 	xor ax, ax
 	mov es, ax
@@ -661,7 +823,6 @@ start:
 
 	.ext:
 	
-	;call copyFromBuffer
 	call moveGround
 	jmp .gameloop
 
