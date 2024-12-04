@@ -18,20 +18,38 @@ prevCol: times 26 db 0
 
 timerCounter: dw 0
 bird: db 0
+pauseFlag: db 0
+
+line1: db '___________.____                                 __________.__           .___', 0
+line2: db '\_   _____/|    |   _____  ______ ______ ___.__. \______   \__|______  __| _/', 0
+line3: db ' |    __)  |    |   \__  \ \____ \\____ <   |  |  |    |  _/  \_  __ \/ __ | ', 0
+line4: db ' |     \   |    |___ / __ \|  |_> >  |_> >___  |  |    |   \  ||  | \/ /_/ | ', 0
+line5: db ' \___  /   |_______ (____  /   __/|   __// ____|  |______  /__||__|  \____ | ', 0
+line6: db '     \/            \/    \/|__|   |__|   \/              \/               \/ ',0
+ 
+line7: db 'Made by', 0
+line8: db 'Abdullah Ihtasham        23L-2515', 0
+line9: db 'Muhammad Wali            23L-00855', 0
+line10: db 'FALL 2024', 0
+line11: db 'Press Enter to Start', 0
+
+headerLine1: db '  ________                        ________                      ',0
+headerLine2: db ' /  _____/_____    _____   ____   \_____  \___  __ ___________ ', 0
+headerLine3: db '/   \  ___\__  \  /     \_/ __ \   /   |   \  \/ // __ \_  __ \', 0
+headerLine4: db '\    \_\  \/ __ \|  Y Y  \  ___/  /    |    \   /\  ___/|  | \/', 0
+headerLine5: db ' \______  (____  /__|_|  /\___  > \_______  /\_/  \___  >__|   ', 0
+headerLine6: db '        \/     \/      \/     \/          \/          \/        ', 0
+
+headerLine7: db '  ________                        __________                                .___', 0
+headerLine8: db ' /  _____/_____    _____   ____   \______   \_____   __ __  ______ ____   __| _/', 0
+headerLine9: db '/   \  ___\__  \  /     \_/ __ \   |     ___/\__  \ |  |  \/  ___// __ \ / __ | ', 0
+headerLine10: db '\    \_\  \/ __ \|  Y Y  \  ___/   |    |     / __ \|  |  /\___ \\  ___// /_/ | ', 0
+headerLine11: db ' \______  (____  /__|_|  /\___  >  |____|    (____  /____//____  >\___  >____ | ', 0
+headerLine12: db '        \/     \/      \/     \/                  \/           \/     \/     \/ ', 0
 
 
-line1: db '  ______                _____  _______            ____  _____ ____  _____   $'
-line2: db ' |  ___|  |        /\   |  __ \|  __ \  \   / /  |  _ \  | | ___  | | __ \   $'
-line3: db ' | |__  | |       /  \  | |) | | |) | |  \ / /   | |)| | | | |  | | | | |  $'
-line4: db ' |  __| | |      / /\ \ |  ___/|  ___/  \   /    |  _ <  | |  _  /  | | | | $'
-line5: db ' | |    | |____ / ____ \| |    | |       | |     | |)| | | | | \ \  | | | | $'
-line6: db ' | |    |//    \\|    | |      | |       | |     \ \/ /  | | |  \ \ | |/ /  $' 
-line7: db 'A Game by: $'
-line8: db 'Abdullah Ihtasham       	23L-2515 $'
-line9: db 'Muhammad Wali 			23L-00855 $'
-line10: db '                         FALL 2024 $'
-line11: db '                            Press Enter to Start   $'
-
+pausedText: db 'Game Paused. Press Enter to continue.', 0
+gameOverText: db 'Press any key to exit the game', 0
 
 ;interrupts
 timerInt:
@@ -63,7 +81,10 @@ kbisr:
     je space_pressed    ; Jump if spacebar is pressed (make code)
     cmp al, 0xB9        ; Check if the key is spacebar release (break code)
     je space_released   ; Jump if spacebar is released
+	cmp al, 01h
+	je pauseGame
     jmp out1             ; Exit for other keys
+	
 
 space_pressed:
     mov byte [birdDir], 'U' ; Set bird direction to 'U' (up)
@@ -73,6 +94,9 @@ space_released:
     mov byte [birdDir], 'D' ; Set bird direction to 'D' (down)
     jmp out1
 
+pauseGame:
+	mov byte [pauseFlag], 1
+
 out1:
     mov al, 0x20
     out 0x20, al        ; Send EOI to PIC
@@ -81,9 +105,146 @@ out1:
     pop ax
     iret
 
+printLine:
+	push bp
+	mov bp, sp
+	push ax
+	push es
+
+	mov ax, 0xb800
+	mov es, ax
+
+	mov ax, 80
+	mul word [bp + 4]
+	add ax, [bp + 6]
+	shl ax, 1
+	mov di, ax 
+	mov si, [bp + 8]
+	mov ah, 0x0E
+	.drawLine:
+		mov al, [ds:si]
+		cmp al, 0
+		je .continue 
+		mov [es:di], ax
+		add si, 1
+		add di, 2
+		jmp .drawLine
+
+.continue:
+	pop es
+	pop ax
+	mov sp, bp
+	pop bp
+	ret 6
+
+pauseTheGame:
+	; Wait for Enter key to be pressed
+	mov ah, 00h   ; BIOS function to set video mode
+	mov al, 03h   ; Set mode to 03h (80x25 text mode)
+	int 10h       ; Call BIOS interrupt
+
+	mov ax, 0xb800
+	mov es, ax
+
+	push headerLine7
+	push word 0
+	push word 1
+	call printLine
+
+	push headerLine8
+	push word 0
+	push word 2
+	call printLine
+
+	push headerLine9
+	push word 0
+	push word 3
+	call printLine
+
+	push headerLine10
+	push word 0
+	push word 4
+	call printLine
+
+	push headerLine11
+	push word 0
+	push word 5
+	call printLine
+
+	push headerLine12
+	push word 0
+	push word 6
+	call printLine
+
+	push pausedText
+	push word 20
+	push word 16
+	call printLine
+
+
+.wait_for_enter:
+	in al, 0x60          ; Read scan code from the keyboard controller
+	cmp al, 0x1C         ; Check if Enter key is pressed (scan code for Enter)
+	jne .wait_for_enter  ; Keep waiting if not Enter
+
+	;call delay
+		mov byte [pauseFlag], 0
+		call initResPalette
+		call drawBG
+	ret
+
+gameOver:
+	mov ah, 00h   ; BIOS function to set video mode
+	mov al, 03h   ; Set mode to 03h (80x25 text mode)
+	int 10h       ; Call BIOS interrupt
+
+	push headerLine1
+	push word 10
+	push word 1
+	call printLine
+
+	push headerLine2
+	push word 10
+	push word 2
+	call printLine
+
+	push headerLine3
+	push word 10
+	push word 3
+	call printLine
+
+	push headerLine4
+	push word 10
+	push word 4
+	call printLine
+
+	push headerLine5
+	push word 10
+	push word 5
+	call printLine
+
+	push headerLine6
+	push word 10
+	push word 6
+	call printLine
+
+	push gameOverText
+	push word 24
+	push word 16
+	call printLine
+
+.wait_for_enter:
+	in al, 0x60          ; Read scan code from the keyboard controller
+	cmp al, 0x1C         ; Check if Enter key is pressed (scan code for Enter)
+	jne .wait_for_enter  ; Keep waiting if not Enter
+
+	mov ax, 0x4c00
+	int 10h
+
 ;functions
 initResPalette:
 	;set 13h vga mode
+	pushA
 	mov ax, 13h
 	int 10h
 	mov ax, 0xA000
@@ -102,6 +263,8 @@ initResPalette:
 		lodsb
 		out  dx, al
 		loop palette_loop
+	
+	popA
 	ret
 	
 drawBG:
@@ -467,11 +630,8 @@ checkCollision:
 	.l1:
 		cmp word [pillarsX + si], 38
 		jb .lose
-		; jne .cont
 		jmp .cont
 		.lose:
-		;call lose
-		;check lower pipe collision
 		mov ax, [birdY]
 		add ax, 20
 		cmp word ax, [pillarsY + si]
@@ -488,17 +648,11 @@ checkCollision:
 		jne .l1
 
 	.callLose:
-	call lose
+	call gameOver
 	.ret:
 	popa
 	ret
 	
-lose:
-	;pusha
-	mov ax, 0x4c00
-	int 0x21
-	;popa
-	ret
 
 wait_vsync:
 	push ax
@@ -532,124 +686,62 @@ drawMenu:
 		stosw
 		loop .clrScr
 
-    ; Save the original cursor position
-    mov ah, 03h           ; Service 3 - Get cursor position
-    mov bh, 0             ; Page 0
-    int 10h
-    push dx               ; Save the original cursor position on the stack
+	push line1
+	push word 0
+	push word 1
+	call printLine
 
-    ; Set the screen text color to yellow
-    mov ax, 0x0E00        ; BIOS Teletype output service (for yellow text)
-    mov bl, 0x0E          ; Yellow foreground
-    mov ah, 0x09          ; Write character attribute
-    int 10h
+	push line2
+	push word 0
+	push word 2
+	call printLine
 
-    ; Draw each line at its respective position
-    ; Line 1
-    mov ah, 02h           ; Service 2 - Set cursor position
-    mov bh, 0             ; Page 0
-    mov dh, 3             ; Row 3
-    mov dl, 1            ; Column 10
-    int 10h
-    mov dx, line1
-    mov ah, 09h           ; Service 9 - Write string to standard output
-    int 21h
+	push line3
+	push word 0
+	push word 3
+	call printLine
 
-    ; Line 2
-    mov ah, 02h
-    mov dh, 4
-    mov dl, 1
-    int 10h
-    mov dx, line2
-    mov ah, 09h
-    int 21h
+	push line4
+	push word 0
+	push word 4
+	call printLine
 
-    ; Line 3
-    mov ah, 02h
-    mov dh, 5
-    mov dl, 1
-    int 10h
-    mov dx, line3
-    mov ah, 09h
-    int 21h
+	push line5
+	push word 0
+	push word 5
+	call printLine
 
-    ; Line 4
-    mov ah, 02h
-    mov dh, 6
-    mov dl, 1
-    int 10h
-    mov dx, line4
-    mov ah, 09h
-    int 21h
+	push line6
+	push word 0
+	push word 6
+	call printLine
 
-    ; Line 5
-    mov ah, 02h
-    mov dh, 7
-    mov dl, 1
-    int 10h
-    mov dx, line5
-    mov ah, 09h
-    int 21h
+	
+	push line7
+	push word 2
+	push word 8
+	call printLine
 
-    ; Line 6
-    mov ah, 02h
-    mov dh, 8
-    mov dl, 1
-    int 10h
-    mov dx, line6
-    mov ah, 09h
-    int 21h
+	push line8
+	push word 2
+	push word 9
+	call printLine
 
-    ; Line 7
-    mov ah, 02h
-    mov dh, 9
-    mov dl, 1
-    int 10h
-    mov dx, line7
-    mov ah, 09h
-    int 21h
+	push line9
+	push word 2
+	push word 10
+	call printLine
+	
+	push line10
+	push word 2
+	push word 11
+	call printLine
+	
+	push line11
+	push word 20
+	push word 16
+	call printLine
 
-    ; Line 8
-    mov ah, 02h
-    mov dh, 10
-    mov dl, 1
-    int 10h
-    mov dx, line8
-    mov ah, 09h
-    int 21h
-
-    ; Line 9
-    mov ah, 02h
-    mov dh, 11
-    mov dl, 1
-    int 10h
-    mov dx, line9
-    mov ah, 09h
-    int 21h
-
-    ; Line 10
-    mov ah, 02h
-    mov dh, 12
-    mov dl, 1
-    int 10h
-    mov dx, line10
-    mov ah, 09h
-    int 21h
-
-    ; Line 11
-    mov ah, 02h
-    mov dh, 17
-    mov dl, 1
-    int 10h
-    mov dx, line11
-    mov ah, 09h
-    int 21h
-
-    ; Restore the original cursor position
-    pop dx
-    mov ah, 02h           ; Service 2 - Set cursor position
-    mov bh, 0             ; Page 0
-    int 10h
 
 	.delayWithK:
 		mov ah, 0 ; service 0 – get keystroke
@@ -662,7 +754,6 @@ drawMenu:
     mov sp, bp
     pop bp
     ret
-
 
 start:
 	call drawMenu;
@@ -680,8 +771,13 @@ start:
 	call drawBG
 	call saveBG
 	
-	.gameloop:
+	gameloop:
 			
+			;checking if game is paused
+			cmp byte [pauseFlag], 1
+			jne notPausing
+			call pauseTheGame
+			notPausing:
 			;checking collision
 			call checkCollision
 			
@@ -700,7 +796,7 @@ start:
 			jne .movingUp
 			add word [birdY], 1
 			cmp word [birdY], 172-21
-			je lose
+			je gameOver
 			jmp .contGameLoop
 			.movingUp:
 				cmp word [birdY], 5
@@ -821,7 +917,7 @@ start:
 	.ext:
 	
 	call moveGround
-	jmp .gameloop
+	jmp gameloop
 
 exit:
 mov ax, 0x4c00
