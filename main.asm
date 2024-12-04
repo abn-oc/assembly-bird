@@ -238,8 +238,15 @@ gameOver:
 	cmp al, 0x1C         ; Check if Enter key is pressed (scan code for Enter)
 	jne .wait_for_enter  ; Keep waiting if not Enter
 
+	call clrscr
+	mov ah, 02h        ; Service 2 - Set cursor position
+    mov bh, 0          ; Page 0
+    mov dh, 24     ; Row (passed from caller)
+    mov dl, 0         ; Column (calculated above)
+    int 10h
+	
 	mov ax, 0x4c00
-	int 10h
+	int 21h
 
 ;functions
 initResPalette:
@@ -629,27 +636,28 @@ checkCollision:
 	mov word si, 0
 	.l1:
 		cmp word [pillarsX + si], 38
-		jb .lose
-		jmp .cont
-		.lose:
+		jb .checkIsTheBirdInGap
+
+		jmp .continue
+		.checkIsTheBirdInGap:
 		mov ax, [birdY]
 		add ax, 20
 		cmp word ax, [pillarsY + si]
-		jg .callLose
+		jg .callGameOver
 		
 		sub ax, 20
 		;check upper pipe collision
 		cmp word ax, [pillarsYInv + si]
-		jl .callLose
-		.cont:
+		jl .callGameOver
+		.continue:
 		add si, 2
 		cmp si, [numOfPipes]
-		je .ret
+		je .return
 		jne .l1
 
-	.callLose:
+	.callGameOver:
 	call gameOver
-	.ret:
+	.return:
 	popa
 	ret
 	
@@ -670,11 +678,9 @@ delay:
 	pop cx
 	ret
 
-drawMenu:
-    push bp
-    mov bp, sp
-    pushA
-
+clrscr:
+	pushA
+	push es
 	mov ax, 0xb800
 	mov es, ax
 
@@ -682,9 +688,20 @@ drawMenu:
 	mov di, 0
 	mov ax, 0x0720
 	
-	.clrScr:
+	.loop:
 		stosw
-		loop .clrScr
+		loop .loop
+
+	pop es
+	popA
+	ret
+
+drawMenu:
+    push bp
+    mov bp, sp
+    pushA
+
+	call clrscr
 
 	push line1
 	push word 0
@@ -756,8 +773,8 @@ drawMenu:
     ret
 
 start:
-	call drawMenu;
-	;hooking keyboard interrupt for jumps
+	call drawMenu
+
 	xor ax, ax
 	mov es, ax
 	cli
