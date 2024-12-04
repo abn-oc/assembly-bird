@@ -16,7 +16,7 @@ birdDir: db 'D'
 
 prevCol: times 26 db 0
 
-timerCounter: db 0
+timerCounter: dw 0
 bird: db 0
 
 
@@ -35,11 +35,12 @@ line11: db '                            Press Enter to Start   $'
 
 ;interrupts
 timerInt:
-	add byte [timerCounter], 1
+	pushA
+	add word [timerCounter], 1
 
-	cmp byte [timerCounter], 200
+	cmp word [timerCounter], 2
 	jl .End
-	mov byte [timerCounter], 0
+	mov word [timerCounter], 0
 	cmp byte [bird], 1
 	je .putZero
 		mov byte [bird], 1
@@ -50,6 +51,7 @@ timerInt:
 	.End:
 	mov al, 0x20
 	out 0x20, al
+	popA
 	iret
 
 kbisr:
@@ -464,7 +466,7 @@ checkCollision:
 	mov word si, 0
 	.l1:
 		cmp word [pillarsX + si], 38
-		je .lose
+		jb .lose
 		; jne .cont
 		jmp .cont
 		.lose:
@@ -480,7 +482,7 @@ checkCollision:
 		cmp word ax, [pillarsYInv + si]
 		jl .callLose
 		.cont:
-		add si, 1
+		add si, 2
 		cmp si, [numOfPipes]
 		je .ret
 		jne .l1
@@ -670,11 +672,6 @@ start:
 	cli
 	mov word [es:9*4], kbisr	
 	mov [es:9*4+2], cs
-	sti	
-
-	mov ax, 0
-	mov es, ax
-	cli ; disable interrupts
 	mov word [es:8*4], timerInt; store offset at n*4
 	mov [es:8*4+2], cs ; store segment at n*4+2
 	sti ; enable interrupts
@@ -723,7 +720,7 @@ start:
 			push 21            ;height
 			push bird_pixel_data       ;pixel data
 			call drawRectTrans	
-			jmp .warpPillars
+			jmp .drawPillarsLoop
 
 			.drawBird2:
 			push 1
@@ -735,7 +732,7 @@ start:
 			push bird2_pixel_data       ;pixel data
 			call drawRectTrans
 
-
+		.drawPillarsLoop:
 		mov cx, 4
 		mov si, 0
 		.drawPillars:
