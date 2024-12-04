@@ -51,6 +51,10 @@ headerLine12: db '        \/     \/      \/     \/                  \/          
 pausedText: db 'Game Paused. Press Enter to continue.', 0
 gameOverText: db 'Press any key to exit the game', 0
 
+
+oldTimerIsr dd 0
+oldKbIsr dd 0
+
 ;interrupts
 timerInt:
 	pushA
@@ -244,6 +248,25 @@ gameOver:
     mov dh, 24     ; Row (passed from caller)
     mov dl, 0         ; Column (calculated above)
     int 10h
+
+	xor ax, ax
+	mov es, ax
+
+	mov ax, [oldKbIsr]								; read old offset in ax
+	mov bx, [oldKbIsr + 2]								; read old segment in bx
+			
+	cli												; disable interrupts
+	mov [es:9*4], ax								; restore old offset from ax
+	mov [es:9*4+2], bx								; restore old segment from bx
+	sti
+
+	mov ax, [oldTimerIsr]								; read old offset in ax
+	mov bx, [oldTimerIsr + 2]								; read old segment in bx
+			
+	cli												; disable interrupts
+	mov [es:8*4], ax								; restore old offset from ax
+	mov [es:8*4+2], bx								; restore old segment from bx
+	sti
 
 	mov ax, 0x4c00
 	int 21h
@@ -544,10 +567,10 @@ drawCroppedBG:
 	mov di, ax
 
 	mov cx, [bp + 4] ; height
-
+	mov bx, [bp + 6]
 	.printRect:
 		push cx
-		mov cx, [bp + 6] ; width
+		mov cx, bx ; width
 		.printLine:  
 			mov  al, [ds:di]
 			mov  [es:di], al
@@ -579,10 +602,10 @@ moveGround:
     mov si, prevCol
     mov cx, 10      ;
     saveCol:
-		mov  al,   [es:di] ;
+		mov  al,[es:di] ;
         mov  [si], al
         inc  si
-        add  di,   320
+        add  di, 320
         loop saveCol
     ;Now I have to move everything to the left
 	
@@ -593,11 +616,11 @@ moveGround:
 		mov si, di
 		add si, 1
 		.loop2:
-				mov  byte al,      [es:si]
+				mov  byte al, [es:si]
 				mov  byte [es:di], al
-				add  di,           320
-				mov  si,           di
-				add  si,           1
+				add  di, 320
+				mov  si, di
+				add  si, 1
 				loop .loop2
 		sub di, 320*10 ;
 		add di, 1
@@ -767,6 +790,17 @@ start:
 
 	xor ax, ax
 	mov es, ax
+
+	mov ax, [es:9*4]
+	mov [oldKbIsr], ax								; save offset of old routine
+	mov ax, [es:9*4+2]
+	mov [oldKbIsr + 2], ax
+
+	mov ax, [es:8*4]
+	mov [oldTimerIsr], ax								; save offset of old routine
+	mov ax, [es:8*4+2]
+	mov [oldTimerIsr + 2], ax
+
 	cli
 	mov word [es:9*4], kbisr	
 	mov [es:9*4+2], cs
