@@ -6,6 +6,9 @@ jmp start
 %include'barrier.asm'
 
 ;variables
+scoreTimer: dw 40	;if i dont use this timer one pillar passing increases score by more than 100
+score: dw 0
+scoreText: db 'Score: ', 0
 pillarYPrev: dw 0
 numOfPipes: dw 4
 pillarsX: dw 170, 250, 330, 410
@@ -79,30 +82,31 @@ timerInt:
 kbisr:
     push ax
     push es
+
     in al, 0x60         ; Read scan code from keyboard controller
-	cmp al, 0xB9        ; Check if the key is spacebar release (break code)
-    je .spaceReleased   ; Jump if spacebar is released
     cmp al, 0x39        ; Check if the key is the spacebar
-    je .spacePressed    ; Jump if spacebar is pressed (make code)
+    je space_pressed    ; Jump if spacebar is pressed (make code)
+    cmp al, 0xB9        ; Check if the key is spacebar release (break code)
+    je space_released   ; Jump if spacebar is released
 	cmp al, 01h
-	je .pauseGame
-    jmp .outKbIsr        ; Exit for other keys
+	je pauseGame
+    jmp out1             ; Exit for other keys
 	
 
-.spacePressed:
-    mov byte [birdDir], 'U'
-    jmp .outKbIsr
+space_pressed:
+    mov byte [birdDir], 'U' ; Set bird direction to 'U' (up)
+    jmp out1
 
-.spaceReleased:
-    mov byte [birdDir], 'D'
-    jmp .outKbIsr
+space_released:
+    mov byte [birdDir], 'D' ; Set bird direction to 'D' (down)
+    jmp out1
 
-.pauseGame:
+pauseGame:
 	mov byte [pauseFlag], 1
 
-.outKbIsr:
+out1:
     mov al, 0x20
-    out 0x20, al
+    out 0x20, al        ; Send EOI to PIC
 
     pop es
     pop ax
@@ -195,11 +199,77 @@ pauseTheGame:
 		call initResPalette
 		call drawBG
 	ret
+	
+;for displaying Score
+hex_to_dec:
+    ; Preserve registers
+    push bp
+    mov bp, sp
+    push si
+    push di
+
+    ; Load the decimal number from [score] into AX
+    mov ax, [score]
+
+    ; Point to the end of scoreText
+    mov si, scoreText
+    ; Find null terminator
+find_null:
+    cmp byte [si], 0
+    je start_conversion
+    inc si
+    jmp find_null
+
+start_conversion:
+    mov di, si            ; Use DI to append digits
+    xor cx, cx            ; Digit counter
+
+    ; Handle zero as a special case
+    test ax, ax
+    jnz convert_loop
+    mov byte [di], '0'
+    inc di
+    jmp end_conversion
+
+convert_loop:
+    xor dx, dx            ; Clear remainder
+    mov bx, 10            ; Divisor
+    div bx                ; AX / 10, remainder in DX
+    add dl, '0'           ; Convert remainder to ASCII
+    push dx               ; Store digit on stack
+    inc cx                ; Increment digit counter
+    test ax, ax           ; Check if quotient is 0
+    jnz convert_loop      ; Repeat until AX == 0
+
+write_digits:
+    pop ax                ; Get ASCII digit from stack
+    mov [di], al          ; Write to scoreText
+    inc di                ; Move to next position
+    loop write_digits     ; Repeat for all digits
+
+end_conversion:
+    ; Null-terminate scoreText
+    mov byte [di], 0
+
+    ; Restore registers
+    pop di
+    pop si
+    pop bp
+    ret
+
 
 gameOver:
 	mov ah, 00h   ; BIOS function to set video mode
 	mov al, 03h   ; Set mode to 03h (80x25 text mode)
 	int 10h       ; Call BIOS interrupt
+
+	;displaying Score
+	sub word [score], 1
+	call hex_to_dec
+	push scoreText
+	push word 35
+	push word 12
+	call printLine
 
 	push headerLine1
 	push word 10
@@ -241,33 +311,31 @@ gameOver:
 	cmp al, 0x1C         ; Check if Enter key is pressed (scan code for Enter)
 	jne .wait_for_enter  ; Keep waiting if not Enter
 
-	call clrscr			; Clear the screen
-	; Restore the cursor position.
-	mov ah, 02h
+	call clrscr
+	mov ah, 02h        ; Service 2 - Set cursor position
     mov bh, 0          ; Page 0
-    mov dh, 24         ; 24th Row
-    mov dl, 0          ; 0th Column
+    mov dh, 24     ; Row (passed from caller)
+    mov dl, 0         ; Column (calculated above)
     int 10h
 
-	; Unhooking the previous interrupts.
 	xor ax, ax
 	mov es, ax
 
 	mov ax, [oldKbIsr]								; read old offset in ax
-	mov bx, [oldKbIsr + 2]							; read old segment in bx
+	mov bx, [oldKbIsr + 2]								; read old segment in bx
 			
 	cli												; disable interrupts
 	mov [es:9*4], ax								; restore old offset from ax
 	mov [es:9*4+2], bx								; restore old segment from bx
-	sti												; enable the interrupts
+	sti
 
 	mov ax, [oldTimerIsr]								; read old offset in ax
-	mov bx, [oldTimerIsr + 2]							; read old segment in bx
+	mov bx, [oldTimerIsr + 2]								; read old segment in bx
 			
 	cli												; disable interrupts
 	mov [es:8*4], ax								; restore old offset from ax
 	mov [es:8*4+2], bx								; restore old segment from bx
-	sti												; enable the interrupts
+	sti
 
 	mov ax, 0x4c00
 	int 21h
@@ -289,6 +357,7 @@ initResPalette:
 	mov cx, 768          ; 256 colors 3 (RGB)
 	mov si, palette_data
 	
+	;print light blue/teal background
 	palette_loop:
 		lodsb
 		out  dx, al
@@ -316,9 +385,7 @@ drawBG:
 	push 200      ;height
 	push bg       ;pixel data
 	call drawRect
-
-	mov sp, bp
-	pop bp
+	pop  bp
 	ret
 
 drawRect:   
@@ -355,8 +422,41 @@ drawRect:
 		popA
 		pop bp
 		ret 10
+		
+copyFromBuffer:
+	push si
+	push di
+	push ds
+	push es
+	push ax
+	call wait_vsync
+	mov  ax, 0xA000
+	mov  es, ax
 
-; This subroutine saves the background to the 0xE000 segment for easy retrieval afterwards.
+	mov ax, 0xA000
+	mov ds, ax
+	    ; Set the source and destination addresses
+    mov si, 0 ; Source address (offscreen buffer at 0xA000)
+    mov di, 0 ; Destination address (screen buffer at 0xA000)
+
+    ; Set the number of bytes to copy (assuming 320x200 VGA mode with 320 bytes per line)
+    ; For example, if we're copying an entire 320x200 screen (64000 bytes)
+    mov cx, 64000 ; Total number of bytes to copy (320 * 200)
+
+copyLoop:
+    mov  al,      [ds:si] ; Load a byte from the source buffer
+    mov  [es:di], al      ; Store the byte in the destination buffer
+    inc  si               ; Move to the next byte in the source buffer
+    inc  di               ; Move to the next byte in the destination buffer
+    loop copyLoop         ; Repeat the loop until cx becomes 0
+
+	pop ax
+	pop es
+	pop ds
+	pop di
+	pop si
+    ret
+
 saveBG:
 	push bp
 	mov bp, sp
@@ -374,12 +474,12 @@ saveBG:
 
 	mov cx, 64000
 
-	.loop:
+	.draw:
 		mov ax, [ds:si]
 		mov [es:di], ax
 		add si, 2
 		add di, 2
-		loop .loop
+		loop .draw
 
 	pop es
 	pop ds
@@ -387,7 +487,6 @@ saveBG:
 	mov sp, bp
 	pop bp
 	ret
-
 drawRectTrans:   
 	push bp
 	mov  bp, sp
@@ -641,6 +740,11 @@ checkCollision:
 	.callGameOver:
 	call gameOver
 	.return:
+	cmp word [scoreTimer], 0
+	jg .ret
+	add word [score], 1
+	mov word [scoreTimer], 45
+	.ret:
 	popa
 	ret
 	
@@ -755,9 +859,8 @@ drawMenu:
     pop bp
     ret
 
-hookAndSaveTheInterrupts:
-	pushA
-	push es
+start:
+	call drawMenu
 
 	xor ax, ax
 	mov es, ax
@@ -768,31 +871,25 @@ hookAndSaveTheInterrupts:
 	mov [oldKbIsr + 2], ax
 
 	mov ax, [es:8*4]
-	mov [oldTimerIsr], ax							; save offset of old routine
+	mov [oldTimerIsr], ax								; save offset of old routine
 	mov ax, [es:8*4+2]
 	mov [oldTimerIsr + 2], ax
 
 	cli
 	mov word [es:9*4], kbisr	
 	mov [es:9*4+2], cs
-	mov word [es:8*4], timerInt
-	mov [es:8*4+2], cs
-	sti 
-
-	pop es
-	popA
-	ret
-
-start:
-	call drawMenu
-
-	call hookAndSaveTheInterrupts
+	mov word [es:8*4], timerInt; store offset at n*4
+	mov [es:8*4+2], cs ; store segment at n*4+2
+	sti ; enable interrupts
 
 	call initResPalette
 	call drawBG
 	call saveBG
 	
 	gameloop:
+			
+			;subtracting timer for not increasing score countless times per pillar
+			sub word [scoreTimer], 1
 			
 			;checking if game is paused
 			cmp byte [pauseFlag], 1
