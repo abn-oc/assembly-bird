@@ -16,6 +16,7 @@ pillarsY: dw 60+60, 80+60, 45+60, 70+60 	;keep y coordinate 95(highest) or above
 pillarsYInv: dw 60, 80, 45, 70  ;keep y coordinate 30(highest) or above and dont make it above 75(lowest)
 birdY: dw 90
 birdDir: db 'D'
+jumpTimer: dw 0
 
 prevCol: times 26 db 0
 
@@ -34,7 +35,7 @@ line7: db 'Made by', 0
 line8: db 'Abdullah Ihtasham        23L-2515', 0
 line9: db 'Muhammad Wali            23L-00855', 0
 line10: db 'FALL 2024', 0
-line11: db 'Press Enter to Start', 0
+line11: db 'Press Enter to Start, Press Esc during game to Pause', 0
 
 headerLine1: db '  ________                        ________                      ',0
 headerLine2: db ' /  _____/_____    _____   ____   \_____  \___  __ ___________ ', 0
@@ -51,7 +52,7 @@ headerLine11: db ' \______  (____  /__|_|  /\___  >  |____|    (____  /____//___
 headerLine12: db '        \/     \/      \/     \/                  \/           \/     \/     \/ ', 0
 
 
-pausedText: db 'Game Paused. Press Enter to continue.', 0
+pausedText: db 'Game Paused. Press Enter to continue. Press Q to quit', 0
 gameOverText: db 'Press any key to exit the game', 0
 
 
@@ -86,20 +87,21 @@ kbisr:
     in al, 0x60         ; Read scan code from keyboard controller
     cmp al, 0x39        ; Check if the key is the spacebar
     je space_pressed    ; Jump if spacebar is pressed (make code)
-    cmp al, 0xB9        ; Check if the key is spacebar release (break code)
-    je space_released   ; Jump if spacebar is released
+    ; cmp al, 0xB9        ; Check if the key is spacebar release (break code)
+    ; je space_released   ; Jump if spacebar is released
 	cmp al, 01h
 	je pauseGame
     jmp out1             ; Exit for other keys
 	
 
 space_pressed:
-    mov byte [birdDir], 'U' ; Set bird direction to 'U' (up)
+    ; mov byte [birdDir], 'U' ; Set bird direction to 'U' (up)
+	mov word [jumpTimer], 12
     jmp out1
 
-space_released:
-    mov byte [birdDir], 'D' ; Set bird direction to 'D' (down)
-    jmp out1
+; space_released:
+    ; mov byte [birdDir], 'D' ; Set bird direction to 'D' (down)
+    ; jmp out1
 
 pauseGame:
 	mov byte [pauseFlag], 1
@@ -184,7 +186,7 @@ pauseTheGame:
 	call printLine
 
 	push pausedText
-	push word 20
+	push word 10
 	push word 16
 	call printLine
 
@@ -192,9 +194,13 @@ pauseTheGame:
 .wait_for_enter:
 	in al, 0x60          ; Read scan code from the keyboard controller
 	cmp al, 0x1C         ; Check if Enter key is pressed (scan code for Enter)
+	je .resume
+	cmp al, 0x10
+	je gameOver
 	jne .wait_for_enter  ; Keep waiting if not Enter
 
 	;call delay
+		.resume:
 		mov byte [pauseFlag], 0
 		call initResPalette
 		call drawBG
@@ -308,8 +314,8 @@ gameOver:
 
 .wait_for_enter:
 	in al, 0x60          ; Read scan code from the keyboard controller
-	cmp al, 0x1C         ; Check if Enter key is pressed (scan code for Enter)
-	jne .wait_for_enter  ; Keep waiting if not Enter
+	;cmp al, 0x1C         ; Check if Enter key is pressed (scan code for Enter)
+	; jne .wait_for_enter  ; Keep waiting if not Enter
 
 	call clrscr
 	mov ah, 02h        ; Service 2 - Set cursor position
@@ -842,7 +848,7 @@ drawMenu:
 	call printLine
 	
 	push line11
-	push word 20
+	push word 10
 	push word 16
 	call printLine
 
@@ -891,6 +897,8 @@ start:
 			;subtracting timer for not increasing score countless times per pillar
 			sub word [scoreTimer], 1
 			
+			sub word [jumpTimer], 1
+			
 			;checking if game is paused
 			cmp byte [pauseFlag], 1
 			jne notPausing
@@ -909,18 +917,25 @@ start:
 			call drawCroppedBG
 	
 			;updating birdY
-			cmp byte [birdDir], 'D'
-			jne .movingUp
-			add word [birdY], 1
-			cmp word [birdY], 172-21
-			je gameOver
-			jmp .contGameLoop
-			.movingUp:
-				cmp word [birdY], 5
-				je .contGameLoop
-				sub word [birdY], 1
+			; cmp byte [birdDir], 'D'
+			; jne .movingUp
+			; add word [birdY], 1
+			; cmp word [birdY], 172-21
+			; je gameOver
+			; jmp .contGameLoop
+			; .movingUp:
+				; cmp word [birdY], 5
+				; je .contGameLoop
+				; sub word [birdY], 1
+			; .contGameLoop:
+			cmp word [jumpTimer], 0
+			jle .contGameLoop
+			sub word [birdY], 2
+			jmp .cont2
 			.contGameLoop:
-
+			add word [birdY], 1
+			
+			.cont2:
 			cmp byte [bird], 0
 			je .drawBird2
 
