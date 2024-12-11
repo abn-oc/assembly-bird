@@ -2,7 +2,7 @@
 jmp start
 
 ;included files
-%include'bgpalette.asm'
+%include'assets.asm'
 %include'barrier.asm'
 
 ;variables
@@ -21,6 +21,7 @@ jumpTimer: dw 0
 prevCol: times 26 db 0
 
 timerCounter: dw 0
+multitaskTick: dw 0
 bird: db 0
 pauseFlag: db 0
 
@@ -33,12 +34,15 @@ line6: db '     \/            \/    \/|__|   |__|   \/              \/          
  
 line7: db 'Made by', 0
 line8: db 'Abdullah Ihtasham        23L-2515', 0
-line9: db 'Muhammad Wali            23L-00855', 0
+line9: db 'Muhammad Wali            23L-0855', 0
 line10: db 'FALL 2024', 0
-line11: db 'Press Any Key to Start the start the Game.', 0
+line11: db 'Press Any key to Continue.', 0
 line12: db 'Instructions: ', 0
 line13: db 'Pres Space to make the bird Jump.', 0
 line14: db 'Press Esc key to pause the game.', 0
+line15: db 'Press Q to quit the game when paused.', 0
+line16: db 'Press Enter to conitnue the game when paused.', 0
+line17: db 'Once the main screen appears, press any key to start the game.', 0
 
 
 headerLine1: db '  ________                        ________                      ',0
@@ -63,6 +67,12 @@ gameOverText: db 'Press any key to exit the game', 0
 oldTimerIsr dd 0
 oldKbIsr dd 0
 
+; ax,bx,cx,dx,si,di,bp,sp,ip,cs,ds,ss,es,flags,next,dummy
+; 0, 2, 4, 6, 8,10,12,14,16,18,20,22,24, 26 , 28 , 30
+pcb: times 2*16 dw 0 ; space for 32 PCBs
+stack: times 256 dw 0 ; space for 32 512 byte stacks
+current: dw 0 ; index of current pcb
+
 ;interrupts
 timerInt:
 	pushA
@@ -79,10 +89,75 @@ timerInt:
 		mov byte [bird], 0
 
 	.End:
-	mov al, 0x20
-	out 0x20, al
 	popA
-	iret
+
+    push ds
+    push bx
+    push cs
+    pop ds ; initialize ds to data segment
+
+    cmp word [current], 0
+    jne switch_task
+
+    mov bx, 0
+
+    inc word [multitaskTick]
+    cmp word [multitaskTick], 17
+    jl end_multitask
+
+    mov word [multitaskTick], 0
+
+switch_task:
+    mov bx, [current] ; read index of current in bx
+    shl bx, 5; multiply by 32 for pcb start
+    
+end_multitask:
+    mov [pcb+bx+0], ax ; save ax in current pcb
+    mov [pcb+bx+4], cx ; save cx in current pcb
+    mov [pcb+bx+6], dx ; save dx in current pcb
+    mov [pcb+bx+8], si ; save si in current pcb
+    mov [pcb+bx+10], di ; save di in current pcb
+    mov [pcb+bx+12], bp ; save bp in current pcb
+    mov [pcb+bx+24], es ; save es in current pcb
+    pop ax ; read original bx from stack
+    mov [pcb+bx+2], ax ; save bx in current pcb
+    pop ax ; read original ds from stack
+    mov [pcb+bx+20], ax ; save ds in current pcb
+    pop ax ; read original ip from stack
+    mov [pcb+bx+16], ax ; save ip in current pcb
+    pop ax ; read original cs from stack
+    mov [pcb+bx+18], ax ; save cs in current pcb
+    pop ax ; read original flags from stack
+    mov [pcb+bx+26], ax ; save cs in current pcb
+    mov [pcb+bx+22], ss ; save ss in current pcb
+    mov [pcb+bx+14], sp ; save sp in current pcb
+    
+    mov bx, [pcb+bx+28] ; read next pcb of this pcb
+    mov [current], bx ; update current to new pcb
+    mov cl, 5
+    shl bx, cl ; multiply by 32 for pcb start
+    
+    mov cx, [pcb+bx+4] ; read cx of new process
+    mov dx, [pcb+bx+6] ; read dx of new process
+    mov si, [pcb+bx+8] ; read si of new process
+    mov di, [pcb+bx+10] ; read diof new process
+    mov bp, [pcb+bx+12] ; read bp of new process
+    mov es, [pcb+bx+24] ; read es of new process
+    mov ss, [pcb+bx+22] ; read ss of new process
+    mov sp, [pcb+bx+14] ; read sp of new process
+    push word [pcb+bx+26] ; push flags of new process
+    push word [pcb+bx+18] ; push cs of new process
+    push word [pcb+bx+16] ; push ip of new process
+    push word [pcb+bx+20] ; push ds of new process
+    
+    mov al, 0x20
+    out 0x20, al ; send EOI to PIC
+    
+    mov ax, [pcb+bx+0] ; read ax of new process
+    mov bx, [pcb+bx+2] ; read bx of new process
+    pop ds ; read ds of new process
+
+    iret ; return to new process
 
 kbisr:
     push ax
@@ -726,8 +801,62 @@ moveGround:
 	pop bp
 	ret
 	
+lengthyDelay:
+	call delay
+	call delay
+	call delay
+	call delay
+	call delay
+	call delay
+	call delay
+	call delay
+	call delay
+	call delay
+	call delay
+	call delay
+	call delay
+	call delay
+	call delay
+	call delay
+	call delay
+	call delay
+	call delay
+	call delay
+	call delay
+	call delay
+	call delay
+	call delay
+	call delay
+	call delay
+	call delay
+	call delay
+	call delay
+	call delay
+	call delay
+	call delay
+	call delay
+	call delay
+	call delay
+	call delay
+	call delay
+	call delay
+	call delay
+	call delay
+	call delay
+	call delay
+
+	ret
+
 checkCollision:
 	pusha
+
+	cmp word [birdY], 150
+	jle .notonground
+
+	call lengthyDelay
+	call gameOver
+
+	.notonground:
 	mov word si, 0
 	.l1:
 		cmp word [pillarsX + si], 38
@@ -751,6 +880,7 @@ checkCollision:
 		jne .l1
 
 	.callGameOver:
+	call lengthyDelay
 	call gameOver
 	.return:
 	cmp word [scoreTimer], 0
@@ -859,21 +989,46 @@ drawMenu:
 	push word 16
 	call printLine
 
+
+	mov ah, 0 ; service 0 – get keystroke
+	int 0x16 ;
+
+	call clrscr
+
 	push line12
 	push word 3
-	push word 19
+	push word 3
 	call printLine
 
 	push line13
-	push word 3
-	push word 20
+	push word 7
+	push word 5
 	call printLine
 
 	push line14
-	push word 3
-	push word 21
+	push word 7
+	push word 6
 	call printLine
 
+	push line15
+	push word 7
+	push word 7
+	call printLine
+
+	push line16
+	push word 7
+	push word 8
+	call printLine
+
+	push line17
+	push word 7
+	push word 9
+	call printLine
+
+	push line11
+	push word 8
+	push word 12
+	call printLine
 
 	.delayWithK:
 		mov ah, 0 ; service 0 – get keystroke
@@ -887,9 +1042,127 @@ drawMenu:
     pop bp
     ret
 
+drawFirstFrame:
+	pusha
+	;drawing Bird
+			push 1
+			push 90
+			push 10     ;x
+			push word [birdY]		;y
+			push 30            ;width
+			push 21            ;height
+			push bird_pixel_data       ;pixel data
+			call drawRectTrans	
+
+	;drawing sprite of down pipe
+			push 0 ;isBird = false
+			push 55
+			push word [pillarsX + 0]     ;x
+			push word [pillarsY + 0]
+			push 26            ;width
+			push 80            ;height
+			push barrier       ;pixel data
+			call drawRectTrans
+
+	;drawing sprite of up pipe
+			push word [pillarsX + 0]	;x
+			push word [pillarsYInv + 0]	;y
+			push 26							;width
+			push 80							;height
+			push barrier					;pixel data
+			call drawRectTransInv
+
+	;drawing sprite of down pipe
+			push 0 ;isBird = false
+			push 55
+			push word [pillarsX + 2]     ;x
+			push word [pillarsY + 2]
+			push 26            ;width
+			push 80            ;height
+			push barrier       ;pixel data
+			call drawRectTrans
+
+	;drawing sprite of up pipe
+			push word [pillarsX + 2]	;x
+			push word [pillarsYInv + 2]	;y
+			push 26							;width
+			push 80							;height
+			push barrier					;pixel data
+			call drawRectTransInv
+	popa
+	ret
+	
+sound: mov al, 0b6h
+out    43h,    al
+
+;load the counter 2 value for d3
+mov    ax,     1fb4h
+out    42h,    al
+mov    al,     ah
+out    42h,    al
+
+;turn the speaker on
+in     al,     61h
+mov    ah,     al
+or     al,     3h
+out    61h,    al
+call delay
+mov    al,     ah
+out    61h,    al
+
+call delay
+
+;load the counter 2 value for a3
+mov    ax,     152fh
+out    42h,    al
+mov    al,     ah
+out    42h,    al
+
+;turn the speaker on
+in     al,     61h
+mov    ah,     al
+or     al,     3h
+out    61h,    al
+call delay
+mov    al,     ah
+out    61h,    al
+
+call delay
+	
+;load the counter 2 value for a4
+mov    ax,     0A97h
+out    42h,    al
+mov    al,     ah
+out    42h,    al
+	
+;turn the speaker on
+in     al,     61h
+mov    ah,     al
+or     al,     3h
+out    61h,    al
+call delay
+mov    al,     ah
+out    61h,    al
+
+call delay
+ 
+ jmp sound
+
+
+
 start:
 	call drawMenu
 
+	call initResPalette
+	call drawBG
+	call saveBG
+
+	call drawFirstFrame
+	
+	mov ah, 0	;getch
+	int 16h
+
+	call drawBG
 	xor ax, ax
 	mov es, ax
 
@@ -910,10 +1183,21 @@ start:
 	mov [es:8*4+2], cs ; store segment at n*4+2
 	sti ; enable interrupts
 
-	call initResPalette
-	call drawBG
-	call saveBG
-	
+    ; mov ax, 1100
+    ; out 0x40, al
+    ; mov al, ah
+    ; out 0x40, al
+
+    mov [pcb+50], cs ; save in pcb space for cs
+    mov word [pcb+48], sound ; save in pcb space for ip
+    mov [pcb+54], ds ; set stack to our segment
+    
+    mov word [pcb+46], 256*2+stack ; save si in pcb space for sp
+    
+    mov word [pcb+58], 0x0200 ; initialize thread flags
+    mov word [pcb+60], 0 ; set as next of new thread
+    mov word [pcb+28], 1 ; set as next of 0th thread
+
 	gameloop:
 			
 			;subtracting timer for not increasing score countless times per pillar
@@ -938,18 +1222,6 @@ start:
 			push 22
 			call drawCroppedBG
 	
-			;updating birdY
-			; cmp byte [birdDir], 'D'
-			; jne .movingUp
-			; add word [birdY], 1
-			; cmp word [birdY], 172-21
-			; je gameOver
-			; jmp .contGameLoop
-			; .movingUp:
-				; cmp word [birdY], 5
-				; je .contGameLoop
-				; sub word [birdY], 1
-			; .contGameLoop:
 			cmp word [jumpTimer], 0
 			jle .contGameLoop
 			sub word [birdY], 2
@@ -988,10 +1260,10 @@ start:
 		.drawPillars:
 			
 			;drawing cropped bg for down pipe
-			add  word [pillarsX + si], 25
+			add word [pillarsX + si], 25
 			push word [pillarsX + si]     ;x
-			sub  word [pillarsX + si], 25
-			push  word [pillarsY + si]
+			sub word [pillarsX + si], 25
+			push word [pillarsY + si]
 
 			push 4             ;width
 			push 80            ;height
@@ -1001,7 +1273,7 @@ start:
 			push 0 ;isBird = false
 			push 55
 			push word [pillarsX + si]     ;x
-			push  word [pillarsY + si]
+			push word [pillarsY + si]
 			push 26            ;width
 			push 80            ;height
 			push barrier       ;pixel data
